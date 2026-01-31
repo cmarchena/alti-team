@@ -49,6 +49,11 @@ export async function GET(request: Request) {
 
     const resources = await prisma.resource.findMany({
       where: { projectId },
+      include: {
+        uploadedBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     })
 
