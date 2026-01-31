@@ -1,0 +1,41 @@
+# shadcn/ui Configuration Marker
+# This file indicates that the project uses shadcn/ui for styling.
+
+# Core Requirements
+UI_LIBRARY=shadcn/ui
+TAILWIND_BASED=true
+COMPONENTS_PATH=src/components/ui
+HOOKS_PATH=src/hooks
+LIB_PATH=src/lib
+
+# Required Components (add as needed)
+# Run: npx shadcn-ui@latest add [component]
+REQUIRED_COMPONENTS=(
+  button
+  input
+  card
+  dialog
+  select
+  table
+  form
+  label
+  textarea
+  dropdown-menu
+  avatar
+  badge
+  toast
+  tabs
+  navigation-menu
+)
+
+# Validation
+FORMS=react-hook-form
+VALIDATION=zod
+
+# Icons
+ICONS=lucide-react
+
+# Styling Pattern
+# - Use shadcn components instead of raw HTML/Tailwind
+# - Follow shadcn theming (CSS variables in globals.css)
+# - Use clsx/tailwind-merge for class merging

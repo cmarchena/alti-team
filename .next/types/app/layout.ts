@@ -1,4 +1,4 @@
-// File: /home/student/Documentos/dev/alti-team/plans/src/app/layout.tsx
+// File: /home/student/Documentos/dev/alti-team/src/app/layout.tsx
 import * as entry from '../../../src/app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

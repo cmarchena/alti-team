@@ -136,6 +136,42 @@ El LLM **debe** usar progress.txt para:
 
 **Importante**: Usa "append", no "update". Queremos un log histórico.
 
+## 🎨 Configuración del Proyecto
+
+### Estilo UI: shadcn/ui
+
+**Este proyecto DEBE usar shadcn/ui para todos los componentes de interfaz.**
+
+- Instalación: `npx shadcn-ui@latest init`
+- Componentes disponibles: `npx shadcn-ui@latest add [component]`
+- Documentación: https://ui.shadcn.com
+
+**Reglas de uso:**
+1. Usar componentes de shadcn en lugar de HTML básico o Tailwind raw
+2. Los componentes principales incluyen: Button, Input, Card, Dialog, Select, Table, etc.
+3. Usar el sistema de temas de shadcn (variables CSS en globals.css)
+4. Los icons deben ser de Lucide React (incluido con shadcn)
+5. Para formularios, usar react-hook-form + zod validation
+
+**Ejemplo de uso correcto:**
+```tsx
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+export function MyComponent() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Título</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Button>Click me</Button>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
 ## 🛠️ Trabajando con Kilo Code
 
 ### Prompt Inicial
