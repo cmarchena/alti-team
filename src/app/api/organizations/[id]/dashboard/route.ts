@@ -1,20 +1,31 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../../generated"
+import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../auth/[...nextauth]/route"
+import { authOptions } from "../../../auth/[...nextauth]/route"
+
+interface StatusCount {
+  status: string
+  _count: { id: number }
+}
+
+interface ProjectStatus {
+  status: string
+}
+
+interface TaskStatus {
+  status: string
+}
 
 const prisma = new PrismaClient()
 
-// DEBUG: Log Prisma client initialization
-console.log("[DEBUG] Prisma client initialized:", {
-  _dmmf: prisma._dmmf ? "available" : "missing",
-  _engineConfig: prisma._engineConfig ? "available" : "missing",
-})
-
-// GET /api/dashboard - Get dashboard metrics for the user's organizations
-export async function GET(request: Request) {
+// GET /api/organizations/[id]/dashboard - Get dashboard metrics for a specific organization
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const session = await getServerSession(authOptions)
+    const { id: organizationId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -22,9 +33,10 @@ export async function GET(request: Request) {
 
     const userId = session.user.id
 
-    // Get all organizations the user has access to
-    const organizations = await prisma.organization.findMany({
+    // Check if user has access to this organization
+    const organization = await prisma.organization.findFirst({
       where: {
+        id: organizationId,
         OR: [
           { ownerId: userId },
           {
@@ -34,55 +46,45 @@ export async function GET(request: Request) {
           },
         ],
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, description: true, createdAt: true },
     })
 
-    const organizationIds = organizations.map((org) => org.id)
-
-    if (organizationIds.length === 0) {
-      return NextResponse.json({
-        metrics: {
-          totalProjects: 0,
-          totalTasks: 0,
-          teamMembers: 0,
-          pendingInvitations: 0,
-          projectsByStatus: {},
-          tasksByStatus: {},
-          recentProjects: [],
-          recentTasks: [],
-        },
-        organizations: [],
-      })
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found or access denied" },
+        { status: 404 }
+      )
     }
 
     // Get project counts by status
-    console.log("[DEBUG] Fetching projects by status for orgs:", organizationIds)
     let projectsByStatusRaw
     try {
       projectsByStatusRaw = await prisma.project.groupBy({
         by: ["status"],
         where: {
-          organizationId: { in: organizationIds },
+          organizationId,
         },
         _count: { id: true },
       })
-      console.log("[DEBUG] groupBy result:", projectsByStatusRaw)
     } catch (groupError) {
       console.error("[DEBUG] groupBy error:", groupError)
       // Fallback: manual aggregation
-      console.log("[DEBUG] Using fallback aggregation")
       const allProjects = await prisma.project.findMany({
-        where: { organizationId: { in: organizationIds } },
+        where: { organizationId },
         select: { status: true },
       })
-      projectsByStatusRaw = allProjects.reduce((acc, p) => {
-        acc.push({ status: p.status, _count: { id: 1 } })
-        return acc
-      }, [])
+      const statusCounts: Record<string, number> = {}
+      allProjects.forEach((p: ProjectStatus) => {
+        statusCounts[p.status] = (statusCounts[p.status] || 0) + 1
+      })
+      projectsByStatusRaw = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        _count: { id: count },
+      }))
     }
 
     const projectsByStatus = projectsByStatusRaw.reduce(
-      (acc, item) => {
+      (acc: Record<string, number>, item: StatusCount) => {
         acc[item.status] = item._count.id
         return acc
       },
@@ -91,40 +93,42 @@ export async function GET(request: Request) {
 
     // Get total projects
     const totalProjects = await prisma.project.count({
-      where: { organizationId: { in: organizationIds } },
+      where: { organizationId },
     })
 
     // Get task counts by status
-    console.log("[DEBUG] Fetching tasks by status")
     let tasksByStatusRaw
     try {
       tasksByStatusRaw = await prisma.task.groupBy({
         by: ["status"],
         where: {
           project: {
-            organizationId: { in: organizationIds },
+            organizationId,
           },
         },
         _count: { id: true },
       })
-      console.log("[DEBUG] tasks groupBy result:", tasksByStatusRaw)
     } catch (taskGroupError) {
       console.error("[DEBUG] tasks groupBy error:", taskGroupError)
       // Fallback: manual aggregation
       const allTasks = await prisma.task.findMany({
         where: {
-          project: { organizationId: { in: organizationIds } },
+          project: { organizationId },
         },
         select: { status: true },
       })
-      tasksByStatusRaw = allTasks.reduce((acc, t) => {
-        acc.push({ status: t.status, _count: { id: 1 } })
-        return acc
-      }, [])
+      const statusCounts: Record<string, number> = {}
+      allTasks.forEach((t: TaskStatus) => {
+        statusCounts[t.status] = (statusCounts[t.status] || 0) + 1
+      })
+      tasksByStatusRaw = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        _count: { id: count },
+      }))
     }
 
     const tasksByStatus = tasksByStatusRaw.reduce(
-      (acc, item) => {
+      (acc: Record<string, number>, item: StatusCount) => {
         acc[item.status] = item._count.id
         return acc
       },
@@ -135,7 +139,7 @@ export async function GET(request: Request) {
     const totalTasks = await prisma.task.count({
       where: {
         project: {
-          organizationId: { in: organizationIds },
+          organizationId,
         },
       },
     })
@@ -143,21 +147,28 @@ export async function GET(request: Request) {
     // Get team members count
     const teamMembers = await prisma.teamMember.count({
       where: {
-        organizationId: { in: organizationIds },
+        organizationId,
+      },
+    })
+
+    // Get departments count
+    const totalDepartments = await prisma.department.count({
+      where: {
+        organizationId,
       },
     })
 
     // Get pending invitations count
     const pendingInvitations = await prisma.invitation.count({
       where: {
-        organizationId: { in: organizationIds },
+        organizationId,
         status: "PENDING",
       },
     })
 
     // Get recent projects
     const recentProjects = await prisma.project.findMany({
-      where: { organizationId: { in: organizationIds } },
+      where: { organizationId },
       orderBy: { createdAt: "desc" },
       take: 5,
       select: {
@@ -173,7 +184,7 @@ export async function GET(request: Request) {
     const recentTasks = await prisma.task.findMany({
       where: {
         project: {
-          organizationId: { in: organizationIds },
+          organizationId,
         },
       },
       orderBy: { createdAt: "desc" },
@@ -192,21 +203,53 @@ export async function GET(request: Request) {
       },
     })
 
+    // Get upcoming tasks (due soon)
+    const upcomingTasks = await prisma.task.findMany({
+      where: {
+        project: {
+          organizationId,
+        },
+        dueDate: {
+          gte: new Date(),
+          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Next 7 days
+        },
+        status: {
+          not: "DONE",
+        },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      include: {
+        project: {
+          select: { id: true, name: true },
+        },
+        assignedTo: {
+          include: {
+            user: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    })
+
     return NextResponse.json({
+      organization,
       metrics: {
         totalProjects,
         totalTasks,
         teamMembers,
+        totalDepartments,
         pendingInvitations,
         projectsByStatus,
         tasksByStatus,
       },
       recentProjects,
       recentTasks,
-      organizations,
+      upcomingTasks,
     })
   } catch (error) {
-    console.error("Error fetching dashboard data:", error)
+    console.error("Error fetching organization dashboard data:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

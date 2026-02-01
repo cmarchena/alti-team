@@ -4,6 +4,12 @@ import bcrypt from "bcryptjs"
 
 const prisma = new PrismaClient()
 
+// DEBUG: Log Prisma client initialization
+console.log("[DEBUG] Register route - Prisma client:", {
+  user: prisma.user ? "available" : "missing",
+  organization: prisma.organization ? "available" : "missing",
+})
+
 export async function POST(request: Request) {
   try {
     const { name, email, password } = await request.json()
