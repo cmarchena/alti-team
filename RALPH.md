@@ -151,6 +151,106 @@ El LLM **debe** usar progress.txt para:
 - **UI**: shadcn/ui + Tailwind CSS
 - **Package Manager**: pnpm (preferido sobre npm/yarn)
 
+### Principios de Código
+
+Este proyecto promueve los siguientes principios de desarrollo:
+
+#### 🧹 Clean Code
+- Código legible y auto-documentado
+- Nombres descriptivos para variables, funciones y archivos
+- Funciones pequeñas con una sola responsabilidad
+- Evitar comentarios innecesarios - el código debe ser claro por sí mismo
+
+#### 💉 Dependency Injection
+- Pasar dependencias como parámetros en lugar de importarlas directamente
+- Facilita el testing y la reutilización
+- Ejemplo:
+```typescript
+// ✅ Bueno: Dependencia inyectada
+async function getUser(prisma: PrismaClient, userId: string) {
+  return prisma.user.findUnique({ where: { id: userId } })
+}
+
+// ❌ Malo: Dependencia hardcodeada
+async function getUser(userId: string) {
+  const prisma = new PrismaClient()
+  return prisma.user.findUnique({ where: { id: userId } })
+}
+```
+
+#### 🧪 Testing
+- Escribir tests para funcionalidad crítica
+- Preferir tests unitarios para lógica de negocio
+- Usar mocks para dependencias externas
+- Ejecutar `npx tsc --noEmit` antes de cada commit
+
+#### 🔧 Functional, No-Class Approach
+- **Preferir funciones sobre clases**
+- Usar composición de funciones en lugar de herencia
+- Evitar `this` y estado mutable cuando sea posible
+- Usar React hooks y functional components (no class components)
+
+**Ejemplo de estilo funcional:**
+```typescript
+// ✅ Bueno: Enfoque funcional
+const formatDate = (date: Date): string =>
+  date.toISOString().split('T')[0]
+
+const calculateTotal = (items: Item[]): number =>
+  items.reduce((sum, item) => sum + item.price, 0)
+
+// Composición de funciones
+const processOrder = (order: Order) =>
+  pipe(
+    validateOrder,
+    calculateTotal,
+    applyDiscount,
+    formatReceipt
+  )(order)
+
+// ❌ Malo: Enfoque con clases
+class OrderProcessor {
+  private order: Order
+  
+  constructor(order: Order) {
+    this.order = order
+  }
+  
+  process() {
+    this.validate()
+    this.calculateTotal()
+    // ...
+  }
+}
+```
+
+**Para React components:**
+```tsx
+// ✅ Bueno: Functional component con hooks
+export function UserProfile({ userId }: { userId: string }) {
+  const [user, setUser] = useState<User | null>(null)
+  
+  useEffect(() => {
+    fetchUser(userId).then(setUser)
+  }, [userId])
+  
+  return user ? <div>{user.name}</div> : <Loading />
+}
+
+// ❌ Malo: Class component
+class UserProfile extends React.Component {
+  state = { user: null }
+  
+  componentDidMount() {
+    // ...
+  }
+  
+  render() {
+    // ...
+  }
+}
+```
+
 ### Estilo UI: shadcn/ui
 
 **Este proyecto DEBE usar shadcn/ui para todos los componentes de interfaz.**
