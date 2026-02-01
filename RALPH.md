@@ -7,7 +7,7 @@
 
 Ralph es un **bash loop** que permite que un coding agent (Kilo Code, Claude Code, Cursor, etc.) trabaje a través de un backlog de tareas de forma autónoma.
 
-**Descripción del proyecto**: POC gestiób de equipos y proyectos
+**Descripción del proyecto**: POC gestión de equipos y proyectos con Next.js 14, Prisma, NextAuth.js y shadcn/ui
 
 ### Por qué Ralph funciona
 
@@ -47,25 +47,29 @@ plans/
 
 ### 1. Define tus tareas en prd.json
 
-Edita `plans/prd.json` con tus user stories:
+Edita `plans/prd.json` con tus user stories. El formato actual usa:
 
 ```json
-[
-  {
-    "id": "feat-001",
-    "title": "Add user authentication",
-    "description": "Users should be able to log in with email/password",
-    "acceptanceCriteria": [
-      "Login form is displayed",
-      "Users can submit credentials",
-      "Successful login redirects to dashboard",
-      "Failed login shows error message"
-    ],
-    "passes": false,
-    "priority": "high"
-  }
-]
+{
+  "features": [
+    {
+      "id": "feat-001",
+      "title": "Add user authentication",
+      "description": "Users should be able to log in with email/password",
+      "acceptanceCriteria": [
+        "Login form is displayed",
+        "Users can submit credentials",
+        "Successful login redirects to dashboard",
+        "Failed login shows error message"
+      ],
+      "status": "pending",
+      "priority": "high"
+    }
+  ]
+}
 ```
+
+**Nota**: El campo `status` puede ser `"pending"` o `"done"`. Ralph busca features con `status != "done"`.
 
 ### 2. Ejecuta Ralph
 
@@ -92,17 +96,17 @@ Cada iteración crea un git commit. Revisa:
 ```json
 {
   "title": "Build entire authentication system",
-  "passes": false
+  "status": "pending"
 }
 ```
 
 **Bueno:**
 ```json
 [
-  { "title": "Add login form UI", "passes": false },
-  { "title": "Connect login to API", "passes": false },
-  { "title": "Add error handling", "passes": false },
-  { "title": "Add session management", "passes": false }
+  { "title": "Add login form UI", "status": "pending" },
+  { "title": "Connect login to API", "status": "pending" },
+  { "title": "Add error handling", "status": "pending" },
+  { "title": "Add session management", "status": "pending" }
 ]
 ```
 
@@ -112,6 +116,7 @@ Cada iteración crea un git commit. Revisa:
 
 Ralph funciona mejor cuando tiene formas de verificar que el código funciona:
 
+- ✅ TypeScript type-checking (`npx tsc --noEmit`)
 - ✅ Linting
 - ✅ E2E tests (Playwright via MCP si es posible)
 - ✅ CI que debe mantenerse verde
@@ -137,6 +142,14 @@ El LLM **debe** usar progress.txt para:
 **Importante**: Usa "append", no "update". Queremos un log histórico.
 
 ## 🎨 Configuración del Proyecto
+
+### Stack Tecnológico
+
+- **Framework**: Next.js 14 (App Router)
+- **Database**: SQLite con Prisma ORM
+- **Auth**: NextAuth.js con JWT strategy
+- **UI**: shadcn/ui + Tailwind CSS
+- **Package Manager**: pnpm (preferido sobre npm/yarn)
 
 ### Estilo UI: shadcn/ui
 
@@ -172,13 +185,33 @@ export function MyComponent() {
 }
 ```
 
+### Prisma Configuration
+
+El cliente Prisma se genera en `src/generated/`. Importar así:
+
+```typescript
+import { PrismaClient } from "@/generated"
+```
+
+**No usar** imports relativos como `../../../generated`.
+
+### Auth Configuration
+
+El `authOptions` está en `src/lib/auth.ts`. Importar así:
+
+```typescript
+import { authOptions } from "@/lib/auth"
+```
+
+**No exportar** `authOptions` desde archivos de ruta de Next.js (causa errores de tipo).
+
 ## 🛠️ Trabajando con Kilo Code
 
 ### Prompt Inicial
 
 Cuando inicies una sesión, dale este contexto a Kilo Code:
 
-\`\`\`
+```
 Este proyecto usa Ralph para AI coding agents.
 
 Lee estos archivos para entender el contexto:
@@ -188,17 +221,17 @@ Lee estos archivos para entender el contexto:
 
 Estoy ejecutando ralph.sh que te llamará en un loop.
 Tu trabajo es:
-1. Elegir la tarea de mayor prioridad del prd.json
+1. Elegir la tarea de mayor prioridad del prd.json (status != "done")
 2. Implementarla completamente
-3. Marcarla como "passes": true
+3. Marcarla como status: "done"
 4. Append tus learnings a progress.txt
 5. Hacer un git commit
-\`\`\`
+```
 
 ### Prompts Comunes
 
 **Agregar nueva feature al backlog:**
-\`\`\`
+```
 Agrega esta user story al prd.json:
 
 Título: [FEATURE_NAME]
@@ -208,22 +241,22 @@ Acceptance Criteria:
 - [Criterio 2]
 
 Asegúrate de que sea una tarea pequeña y atómica.
-\`\`\`
+```
 
 **Dividir tarea grande:**
-\`\`\`
+```
 La tarea [TASK_ID] en prd.json es muy grande.
 Divídela en 3-5 subtareas más pequeñas.
 Reemplaza esa tarea con las subtareas en el prd.json.
-\`\`\`
+```
 
 **Review de progreso:**
-\`\`\`
+```
 Resume lo que se ha logrado hasta ahora:
 1. Lee progress.txt
-2. Cuenta cuántas tareas están "passes": true
+2. Cuenta cuántas tareas están status: "done"
 3. Identifica blockers o problemas recurrentes
-\`\`\`
+```
 
 ## 🚨 Troubleshooting
 
@@ -239,6 +272,17 @@ Resume lo que se ha logrado hasta ahora:
 3. Revisa los últimos commits - ¿qué intentó hacer?
 4. Simplifica la tarea en prd.json o divídela en partes más pequeñas
 5. Ejecuta ralph-once.sh para ir paso a paso
+
+### TypeScript errors en .next/types
+
+**Síntomas:**
+- Errores sobre exports no permitidos en route files
+- "Property 'X' is incompatible with index signature"
+
+**Solución:**
+- No exportar funciones helper desde archivos `route.ts`
+- Mover helpers a archivos en `src/lib/`
+- Solo exportar HTTP handlers (GET, POST, etc.) desde routes
 
 ### Los tests fallan en CI
 
@@ -277,6 +321,8 @@ Resume lo que se ha logrado hasta ahora:
 3. **Tareas pequeñas siempre** - Una tarea compleja = múltiples tareas pequeñas
 4. **Lee progress.txt regularmente** - Es tu ventana a lo que piensa el LLM
 5. **Commitea el prd.json** - Para que el LLM vea su evolución en git history
+6. **Corre type-checking** - `npx tsc --noEmit` antes de cada commit
+7. **Usa path aliases** - `@/lib/auth` en lugar de rutas relativas
 
 ## 🎓 Filosofía
 
@@ -288,5 +334,5 @@ En lugar de ser un "planner anal retentivo", con Ralph eres un **product designe
 
 ---
 
-**Última actualización**: $(date +"%Y-%m-%d")
-**Herramienta AI**: $AI_TOOL
+**Última actualización**: 2026-02-01
+**Herramienta AI**: Kilo Code (Claude)
