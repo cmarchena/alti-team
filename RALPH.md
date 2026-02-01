@@ -178,6 +178,222 @@ async function getUser(userId: string) {
 }
 ```
 
+#### 🏗️ Repository Pattern & Environment-Based Switching
+
+Este proyecto usa el **Repository Pattern** para abstraer el acceso a datos y permitir cambiar entre implementaciones según el entorno:
+
+- **dev**: In-memory repositories (rápido, sin base de datos)
+- **stage/prod**: Prisma repositories (base de datos real)
+
+**1. Definir interfaces de repositorio:**
+
+```typescript
+// src/lib/repositories/types.ts
+export interface OrganizationRepository {
+  findById(id: string): Promise<Organization | null>
+  findByOwnerId(ownerId: string): Promise<Organization[]>
+  create(data: CreateOrganizationInput): Promise<Organization>
+  update(id: string, data: UpdateOrganizationInput): Promise<Organization>
+  delete(id: string): Promise<void>
+}
+
+export interface UserRepository {
+  findById(id: string): Promise<User | null>
+  findByEmail(email: string): Promise<User | null>
+  create(data: CreateUserInput): Promise<User>
+  update(id: string, data: UpdateUserInput): Promise<User>
+}
+
+// Agregar más interfaces según las entidades del proyecto
+```
+
+**2. Implementación In-Memory (para dev):**
+
+```typescript
+// src/lib/repositories/in-memory/organization.repository.ts
+import { OrganizationRepository } from "../types"
+
+export const createInMemoryOrganizationRepository = (): OrganizationRepository => {
+  const organizations: Map<string, Organization> = new Map()
+
+  return {
+    findById: async (id) => organizations.get(id) ?? null,
+    
+    findByOwnerId: async (ownerId) =>
+      Array.from(organizations.values()).filter(org => org.ownerId === ownerId),
+    
+    create: async (data) => {
+      const org = {
+        id: crypto.randomUUID(),
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      organizations.set(org.id, org)
+      return org
+    },
+    
+    update: async (id, data) => {
+      const existing = organizations.get(id)
+      if (!existing) throw new Error("Organization not found")
+      const updated = { ...existing, ...data, updatedAt: new Date() }
+      organizations.set(id, updated)
+      return updated
+    },
+    
+    delete: async (id) => {
+      organizations.delete(id)
+    }
+  }
+}
+```
+
+**3. Implementación Prisma (para stage/prod):**
+
+```typescript
+// src/lib/repositories/prisma/organization.repository.ts
+import { PrismaClient } from "@/generated"
+import { OrganizationRepository } from "../types"
+
+export const createPrismaOrganizationRepository = (
+  prisma: PrismaClient
+): OrganizationRepository => ({
+  findById: (id) => prisma.organization.findUnique({ where: { id } }),
+  
+  findByOwnerId: (ownerId) => prisma.organization.findMany({
+    where: { ownerId },
+    orderBy: { createdAt: "desc" }
+  }),
+  
+  create: (data) => prisma.organization.create({ data }),
+  
+  update: (id, data) => prisma.organization.update({
+    where: { id },
+    data
+  }),
+  
+  delete: async (id) => {
+    await prisma.organization.delete({ where: { id } })
+  }
+})
+```
+
+**4. Factory con selección por entorno:**
+
+```typescript
+// src/lib/repositories/index.ts
+import { PrismaClient } from "@/generated"
+import { createInMemoryOrganizationRepository } from "./in-memory/organization.repository"
+import { createPrismaOrganizationRepository } from "./prisma/organization.repository"
+import { OrganizationRepository, UserRepository } from "./types"
+
+export interface Repositories {
+  organizations: OrganizationRepository
+  users: UserRepository
+  // Agregar más repositorios según sea necesario
+}
+
+// Singleton para in-memory (mantiene estado entre requests en dev)
+let inMemoryRepos: Repositories | null = null
+
+const createInMemoryRepositories = (): Repositories => {
+  if (!inMemoryRepos) {
+    inMemoryRepos = {
+      organizations: createInMemoryOrganizationRepository(),
+      users: createInMemoryUserRepository(),
+    }
+  }
+  return inMemoryRepos
+}
+
+const createPrismaRepositories = (prisma: PrismaClient): Repositories => ({
+  organizations: createPrismaOrganizationRepository(prisma),
+  users: createPrismaUserRepository(prisma),
+})
+
+// Factory principal - selecciona implementación según NODE_ENV
+export const getRepositories = (): Repositories => {
+  const env = process.env.NODE_ENV
+
+  if (env === "development") {
+    return createInMemoryRepositories()
+  }
+
+  // stage y production usan Prisma
+  const prisma = new PrismaClient()
+  return createPrismaRepositories(prisma)
+}
+
+// Para testing - permite inyectar mocks
+export const createTestRepositories = (
+  overrides: Partial<Repositories> = {}
+): Repositories => ({
+  organizations: overrides.organizations ?? createInMemoryOrganizationRepository(),
+  users: overrides.users ?? createInMemoryUserRepository(),
+})
+```
+
+**5. Uso en API routes:**
+
+```typescript
+// src/app/api/organizations/route.ts
+import { NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { getRepositories } from "@/lib/repositories"
+
+// ✅ Bueno: Obtiene repositorios según el entorno
+const repos = getRepositories()
+
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const organizations = await repos.organizations.findByOwnerId(session.user.id)
+  return NextResponse.json({ organizations })
+}
+
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { name, description } = await request.json()
+  const organization = await repos.organizations.create({
+    name,
+    description,
+    ownerId: session.user.id,
+  })
+
+  return NextResponse.json({ organization }, { status: 201 })
+}
+```
+
+**6. Configuración de entorno:**
+
+```bash
+# .env.development
+NODE_ENV=development
+# No necesita DATABASE_URL - usa in-memory
+
+# .env.staging
+NODE_ENV=staging
+DATABASE_URL="postgresql://..."
+
+# .env.production
+NODE_ENV=production
+DATABASE_URL="postgresql://..."
+```
+
+**Beneficios de este patrón:**
+- ✅ **Dev rápido**: Sin necesidad de base de datos local
+- ✅ **Testing fácil**: Inyecta mocks o usa in-memory
+- ✅ **Cambio transparente**: Mismo código, diferente implementación
+- ✅ **Type-safe**: TypeScript garantiza que las implementaciones cumplan el contrato
+
 #### 🧪 Testing
 - Escribir tests para funcionalidad crítica
 - Preferir tests unitarios para lógica de negocio

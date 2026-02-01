@@ -100,6 +100,15 @@ export default function ProjectDetailPage() {
   })
   const [submitting, setSubmitting] = useState(false)
 
+  // Resource modal states
+  const [showResourceModal, setShowResourceModal] = useState(false)
+  const [resourceFormData, setResourceFormData] = useState({
+    name: "",
+    type: "DOCUMENT",
+    url: "",
+  })
+  const [submittingResource, setSubmittingResource] = useState(false)
+
   useEffect(() => {
     if (projectId) {
       fetchProject()
@@ -191,6 +200,38 @@ export default function ProjectDetailPage() {
       fetchProject()
     } catch (err) {
       setError("Failed to delete task")
+    }
+  }
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmittingResource(true)
+    setError("")
+
+    try {
+      const res = await fetch("/api/resources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: resourceFormData.name,
+          type: resourceFormData.type,
+          url: resourceFormData.url || null,
+          projectId,
+        }),
+      })
+
+      if (res.ok) {
+        setShowResourceModal(false)
+        setResourceFormData({ name: "", type: "DOCUMENT", url: "" })
+        fetchProject()
+      } else {
+        const data = await res.json()
+        setError(data.error || "Failed to create resource")
+      }
+    } catch (err) {
+      setError("An error occurred while creating the resource")
+    } finally {
+      setSubmittingResource(false)
     }
   }
 
@@ -379,66 +420,84 @@ export default function ProjectDetailPage() {
 
         {/* Resources Tab */}
         {activeTab === "resources" && (
-          <div className="bg-white shadow rounded-lg">
-            {project.resources.length === 0 ? (
-              <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                  />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No resources</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by adding a resource.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-gray-200">
-                {project.resources.map((resource) => (
-                  <li key={resource.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <svg
-                          className="h-10 w-10 text-gray-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                        <div className="ml-4">
-                          <p className="text-sm font-medium text-gray-900">{resource.name}</p>
-                          <p className="text-sm text-gray-500">{resource.type}</p>
+          <div>
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => setShowResourceModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                + Add Resource
+              </button>
+            </div>
+            <div className="bg-white shadow rounded-lg">
+              {project.resources.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No resources</h3>
+                  <p className="mt-1 text-sm text-gray-500">Get started by adding a resource.</p>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => setShowResourceModal(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      + Add Resource
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {project.resources.map((resource) => (
+                    <li key={resource.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <svg
+                            className="h-10 w-10 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-900">{resource.name}</p>
+                            <p className="text-sm text-gray-500">{resource.type}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {resource.url && (
+                            <a
+                              href={resource.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                            >
+                              Open
+                            </a>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        {resource.url && (
-                          <a
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                          >
-                            Open
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
 
@@ -634,6 +693,90 @@ export default function ProjectDetailPage() {
                     {submitting ? "Saving..." : selectedTask ? "Update" : "Create"}
                   </button>
                 </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resource Modal */}
+      {showResourceModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">Add Resource</h3>
+            </div>
+            <form onSubmit={handleCreateResource}>
+              <div className="px-6 py-4 space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+                <div>
+                  <label htmlFor="resourceName" className="block text-sm font-medium text-gray-700">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    id="resourceName"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={resourceFormData.name}
+                    onChange={(e) => setResourceFormData({ ...resourceFormData, name: e.target.value })}
+                    placeholder="Project Documentation"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="resourceType" className="block text-sm font-medium text-gray-700">
+                    Type
+                  </label>
+                  <select
+                    id="resourceType"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={resourceFormData.type}
+                    onChange={(e) => setResourceFormData({ ...resourceFormData, type: e.target.value })}
+                  >
+                    <option value="DOCUMENT">Document</option>
+                    <option value="LINK">Link</option>
+                    <option value="IMAGE">Image</option>
+                    <option value="VIDEO">Video</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="resourceUrl" className="block text-sm font-medium text-gray-700">
+                    URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    id="resourceUrl"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    value={resourceFormData.url}
+                    onChange={(e) => setResourceFormData({ ...resourceFormData, url: e.target.value })}
+                    placeholder="https://example.com/document.pdf"
+                  />
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResourceModal(false)
+                    setResourceFormData({ name: "", type: "DOCUMENT", url: "" })
+                    setError("")
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingResource}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  {submittingResource ? "Adding..." : "Add Resource"}
+                </button>
               </div>
             </form>
           </div>
