@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../../generated"
+import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
-// DEBUG: Log Prisma client initialization
-console.log("[DEBUG] Prisma client initialized:", {
-  _dmmf: prisma._dmmf ? "available" : "missing",
-  _engineConfig: prisma._engineConfig ? "available" : "missing",
-})
+interface StatusCount {
+  status: string
+  _count: { id: number }
+}
+
+interface Organization {
+  id: string
+  name: string
+}
 
 // GET /api/dashboard - Get dashboard metrics for the user's organizations
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 
@@ -37,7 +41,7 @@ export async function GET(request: Request) {
       select: { id: true, name: true },
     })
 
-    const organizationIds = organizations.map((org) => org.id)
+    const organizationIds = organizations.map((org: Organization) => org.id)
 
     if (organizationIds.length === 0) {
       return NextResponse.json({
@@ -56,33 +60,35 @@ export async function GET(request: Request) {
     }
 
     // Get project counts by status
-    console.log("[DEBUG] Fetching projects by status for orgs:", organizationIds)
-    let projectsByStatusRaw
+    let projectsByStatusRaw: StatusCount[] = []
     try {
-      projectsByStatusRaw = await prisma.project.groupBy({
+      const groupByResult = await prisma.project.groupBy({
         by: ["status"],
         where: {
           organizationId: { in: organizationIds },
         },
         _count: { id: true },
       })
-      console.log("[DEBUG] groupBy result:", projectsByStatusRaw)
+      projectsByStatusRaw = groupByResult as StatusCount[]
     } catch (groupError) {
-      console.error("[DEBUG] groupBy error:", groupError)
+      console.error("groupBy error:", groupError)
       // Fallback: manual aggregation
-      console.log("[DEBUG] Using fallback aggregation")
       const allProjects = await prisma.project.findMany({
         where: { organizationId: { in: organizationIds } },
         select: { status: true },
       })
-      projectsByStatusRaw = allProjects.reduce((acc, p) => {
-        acc.push({ status: p.status, _count: { id: 1 } })
-        return acc
-      }, [])
+      const statusCounts: Record<string, number> = {}
+      allProjects.forEach((p: { status: string }) => {
+        statusCounts[p.status] = (statusCounts[p.status] || 0) + 1
+      })
+      projectsByStatusRaw = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        _count: { id: count },
+      }))
     }
 
     const projectsByStatus = projectsByStatusRaw.reduce(
-      (acc, item) => {
+      (acc: Record<string, number>, item: StatusCount) => {
         acc[item.status] = item._count.id
         return acc
       },
@@ -95,10 +101,9 @@ export async function GET(request: Request) {
     })
 
     // Get task counts by status
-    console.log("[DEBUG] Fetching tasks by status")
-    let tasksByStatusRaw
+    let tasksByStatusRaw: StatusCount[] = []
     try {
-      tasksByStatusRaw = await prisma.task.groupBy({
+      const taskGroupByResult = await prisma.task.groupBy({
         by: ["status"],
         where: {
           project: {
@@ -107,9 +112,9 @@ export async function GET(request: Request) {
         },
         _count: { id: true },
       })
-      console.log("[DEBUG] tasks groupBy result:", tasksByStatusRaw)
+      tasksByStatusRaw = taskGroupByResult as StatusCount[]
     } catch (taskGroupError) {
-      console.error("[DEBUG] tasks groupBy error:", taskGroupError)
+      console.error("tasks groupBy error:", taskGroupError)
       // Fallback: manual aggregation
       const allTasks = await prisma.task.findMany({
         where: {
@@ -117,14 +122,18 @@ export async function GET(request: Request) {
         },
         select: { status: true },
       })
-      tasksByStatusRaw = allTasks.reduce((acc, t) => {
-        acc.push({ status: t.status, _count: { id: 1 } })
-        return acc
-      }, [])
+      const statusCounts: Record<string, number> = {}
+      allTasks.forEach((t: { status: string }) => {
+        statusCounts[t.status] = (statusCounts[t.status] || 0) + 1
+      })
+      tasksByStatusRaw = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        _count: { id: count },
+      }))
     }
 
     const tasksByStatus = tasksByStatusRaw.reduce(
-      (acc, item) => {
+      (acc: Record<string, number>, item: StatusCount) => {
         acc[item.status] = item._count.id
         return acc
       },

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { PrismaClient } from "../../../generated"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       })
     }
 
-    const searchTerm = `%${query}%`
+    const searchTerm = query
 
     // Get user's organizations
     const userOrgs = await prisma.organization.findMany({
@@ -86,8 +86,8 @@ export async function GET(request: Request) {
         where: {
           organizationId: { in: orgIds },
           OR: [
-            { name: { like: searchTerm } },
-            { description: { like: searchTerm } },
+            { name: { contains: searchTerm } },
+            { description: { contains: searchTerm } },
           ],
         },
         select: {
@@ -108,8 +108,8 @@ export async function GET(request: Request) {
         where: {
           project: { organizationId: { in: orgIds } },
           OR: [
-            { title: { like: searchTerm } },
-            { description: { like: searchTerm } },
+            { title: { contains: searchTerm } },
+            { description: { contains: searchTerm } },
           ],
         },
         select: {
@@ -132,8 +132,8 @@ export async function GET(request: Request) {
         where: {
           project: { organizationId: { in: orgIds } },
           OR: [
-            { name: { like: searchTerm } },
-            { url: { like: searchTerm } },
+            { name: { contains: searchTerm } },
+            { url: { contains: searchTerm } },
           ],
         },
         select: {
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
           project: { select: { id: true, name: true } },
         },
         take: 10,
-        orderBy: { updatedAt: "desc" },
+        orderBy: { createdAt: "desc" },
       })
     }
 

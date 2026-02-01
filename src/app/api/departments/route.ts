@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../../generated"
+import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
@@ -13,7 +13,7 @@ async function wouldCreateCycle(departmentId: string, parentId: string | null): 
   let currentId: string | null = parentId
   while (currentId) {
     if (currentId === departmentId) return true
-    const dept = await prisma.department.findUnique({
+    const dept: { parentId: string | null } | null = await prisma.department.findUnique({
       where: { id: currentId },
       select: { parentId: true },
     })

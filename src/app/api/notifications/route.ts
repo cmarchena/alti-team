@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { PrismaClient } from "../../../generated"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 
 const prisma = new PrismaClient()
 
@@ -92,14 +92,13 @@ export async function POST(request: Request) {
 
     // This endpoint should only be called by the server, not directly by clients
     // In production, you'd want additional validation here
-    const { userId, type, message, data } = await request.json()
+    const { userId, type, message } = await request.json()
 
     const notification = await prisma.notification.create({
       data: {
         userId,
         type,
         message,
-        data: data ? JSON.stringify(data) : undefined,
       },
     })
 
@@ -143,26 +142,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("Error deleting notifications:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
-
-// Helper function to create notifications from other parts of the app
-export async function createNotification(
-  userId: string,
-  type: string,
-  message: string,
-  data?: Record<string, unknown>
-) {
-  try {
-    await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        message,
-        data: data ? JSON.stringify(data) : undefined,
-      },
-    })
-  } catch (error) {
-    console.error("Error creating notification:", error)
   }
 }

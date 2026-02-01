@@ -2,13 +2,20 @@
 
 import { useState, useCallback } from "react"
 
+interface DepartmentChild {
+  id: string
+  name: string
+  description?: string | null
+  parentId?: string | null
+}
+
 interface Department {
   id: string
   name: string
   description: string | null
   parentId: string | null
   parent?: { id: string; name: string } | null
-  children?: { id: string; name: string }[]
+  children?: DepartmentChild[]
   _count?: {
     teamMembers: number
     processes: number
@@ -176,7 +183,7 @@ function DepartmentNodeWrapper({
   onAddSub,
   onDelete,
 }: {
-  department: Department
+  department: Department | DepartmentChild
   depth: number
   allDepartments: Department[]
   onEdit: (d: Department) => void
@@ -187,9 +194,12 @@ function DepartmentNodeWrapper({
 
   // Get full department data with children
   const fullDepartment: Department = {
-    ...department,
+    id: department.id,
+    name: department.name,
+    description: department.description ?? null,
+    parentId: department.parentId ?? null,
     children: allDepartments.filter((d) => d.parentId === department.id),
-    _count: department._count,
+    _count: (department as Department)._count,
   }
 
   return (

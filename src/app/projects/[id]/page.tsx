@@ -364,7 +364,7 @@ export default function ProjectDetailPage() {
                   <button
                     onClick={() => {
                       setSelectedTask(null)
-                      setTaskFormData({ title: "", description: "", status, priority: "MEDIUM", dueDate: "" })
+                      setTaskFormData({ title: "", description: "", status, priority: "MEDIUM", dueDate: "", assignedToId: "" })
                       setShowTaskModal(true)
                     }}
                     className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400"

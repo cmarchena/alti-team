@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useSearchParams } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function AcceptInvitationPage() {
   const router = useRouter()
