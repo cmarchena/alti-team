@@ -244,3 +244,36 @@
 - Updated prd.json to mark server-002 as "done"
 - Decision: Environment-based switching provides flexibility for dev/prod deployments
 - Learning: Repository pattern with dependency injection enables clean separation between data access and business logic
+
+## Iteration 16: Authentication Context (server-003)
+- Implemented complete authentication context system for MCP server
+- Added JWT token validation using jsonwebtoken library
+- Implemented API key authentication system with:
+  - generateAPIKey() function to create new API keys with optional expiration
+  - validateAPIKey() function to check key validity and expiration
+  - revokeAPIKey() function to revoke keys
+  - listAPIKeys() function to list user's API keys
+  - In-memory storage using Map for development (can be moved to database later)
+- Enhanced authentication middleware to support three auth methods:
+  - Bearer JWT tokens in Authorization header
+  - API keys via x-api-key header
+  - Session tokens via x-session-token header
+- All acceptance criteria met:
+  ✓ Each tool call includes authenticated user context (userId injected via middleware)
+  ✓ Invalid sessions are rejected with clear error messages (JWT expiration, invalid token, missing auth)
+  ✓ Support for API key and JWT token authentication (both implemented)
+- Created API endpoint at /api/auth/api-keys for:
+  - GET: List user's API keys
+  - POST: Generate new API keys with optional expiration
+  - DELETE: Revoke API keys
+- Created UI page at /settings/api-keys for managing API keys:
+  - View all API keys with creation date and expiration
+  - Create new keys with custom name and expiration
+  - Copy generated key to clipboard (shown only once)
+  - Revoke keys with confirmation
+- Updated helper functions validateOrganizationAccess and validateOrganizationOwnership to use Result type correctly
+- Decision: Used in-memory Map for API key storage for simplicity; can migrate to database for production
+- Decision: Used NEXTAUTH_SECRET environment variable for JWT validation to maintain consistency
+- Learning: JWT validation with jsonwebtoken provides robust token expiry and signature verification
+- Learning: API keys should be shown only once during generation for security
+- Learning: Multiple authentication methods provide flexibility for different client types

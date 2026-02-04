@@ -22,9 +22,7 @@
         "status": "done",
         "description": "Set up base MCP server with stdio transport and tool registration",
         "implementation": "Create src/mcp-server/index.ts with MCP SDK, implement server initialization, tool registry, and stdio transport handler",
-        "dependencies": [
-          "@modelcontextprotocol/sdk"
-        ],
+        "dependencies": ["@modelcontextprotocol/sdk"],
         "acceptanceCriteria": [
           "Server starts and connects via stdio",
           "Server responds to list_tools requests",
@@ -38,10 +36,7 @@
         "status": "done",
         "description": "Connect MCP server to AltiTeam repository pattern for data access",
         "implementation": "Import repository factory, implement database connection management, add environment-based switching (in-memory/PostgreSQL)",
-        "dependencies": [
-          "server-001",
-          "refactor-001"
-        ],
+        "dependencies": ["server-001", "refactor-001"],
         "acceptanceCriteria": [
           "Server can access all repositories",
           "Proper connection pooling for PostgreSQL",
@@ -52,12 +47,10 @@
         "id": "server-003",
         "title": "Authentication Context",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Handle user authentication and session context in MCP server",
         "implementation": "Implement authentication middleware, session token validation, user context injection into tool calls",
-        "dependencies": [
-          "server-001"
-        ],
+        "dependencies": ["server-001"],
         "acceptanceCriteria": [
           "Each tool call includes authenticated user context",
           "Invalid sessions are rejected with clear error messages",
@@ -89,9 +82,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/user.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "What's my profile?",
           "Update my name to John Smith",
@@ -116,9 +107,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/user.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Find users named Sarah",
           "Who's in the engineering department?",
@@ -165,9 +154,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/organization.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create an organization called Acme Corp",
           "Show me my organizations",
@@ -199,9 +186,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/organization.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Show me the dashboard for Acme Corp",
           "What are our key metrics this month?",
@@ -266,9 +251,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/project.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create a project called Website Redesign",
           "Show me all active projects",
@@ -302,9 +285,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/project.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create a new software development project from template",
           "What project templates are available?",
@@ -335,9 +316,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/project.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "How's the Website Redesign project progressing?",
           "Show me analytics for all Q1 projects",
@@ -395,9 +374,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/task.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create a task to design the homepage",
           "Assign the API integration task to Sarah",
@@ -445,9 +422,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/task.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "What are my tasks for today?",
           "Show me all overdue tasks",
@@ -479,9 +454,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/task.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Add a comment to task xyz: 'This is blocked by the API work'",
           "What are the comments on the design task?",
@@ -522,9 +495,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/team.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create a team called Engineering",
           "Show me all teams in Acme Corp",
@@ -564,9 +535,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/team.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Add Sarah to the Engineering team",
           "Who's on the Marketing team?",
@@ -615,9 +584,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/department.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create a department called Sales",
           "Show me the org chart",
@@ -660,9 +627,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/process.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Create an onboarding process",
           "What processes do we have?",
@@ -702,9 +667,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/process.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Start the onboarding process for John",
           "What's the status of the onboarding for Sarah?",
@@ -728,9 +691,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/process.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "How long does onboarding usually take?",
           "What's the bottleneck in our review process?",
@@ -783,9 +744,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/resource.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Add a link to the design mockups for the homepage project",
           "Create a note with meeting minutes for task xyz",
@@ -819,9 +778,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/member.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Who are the admins in Acme Corp?",
           "List all members",
@@ -861,9 +818,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/member.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Invite john@example.com as an admin",
           "What invitations are pending?",
@@ -887,9 +842,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/member.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Make Sarah an admin",
           "Change John's role to viewer",
@@ -917,9 +870,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/search.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Search for anything related to 'authentication'",
           "Find all items mentioning 'Q1 goals'",
@@ -955,9 +906,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/notification.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "What are my unread notifications?",
           "Show me all notifications",
@@ -973,9 +922,7 @@
         "status": "todo",
         "description": "Build Next.js chat interface with Anthropic API integration",
         "implementation": "Create src/app/chat/page.tsx with chat UI, integrate Anthropic SDK, implement message history, add streaming responses",
-        "dependencies": [
-          "@anthropic-ai/sdk"
-        ],
+        "dependencies": ["@anthropic-ai/sdk"],
         "acceptanceCriteria": [
           "Users can send messages and receive responses",
           "Chat history is displayed",
@@ -990,10 +937,7 @@
         "status": "todo",
         "description": "Connect chat UI to MCP server for tool calling",
         "implementation": "Implement MCP client connection, handle tool calls from Claude, execute tools via MCP server, display tool results in chat",
-        "dependencies": [
-          "client-001",
-          "server-001"
-        ],
+        "dependencies": ["client-001", "server-001"],
         "acceptanceCriteria": [
           "Claude can call MCP tools during conversation",
           "Tool results are formatted nicely in chat",
@@ -1008,10 +952,7 @@
         "status": "todo",
         "description": "Integrate NextAuth.js with chat interface",
         "implementation": "Use existing NextAuth setup, pass user session to MCP server, protect chat routes, add login/logout in chat UI",
-        "dependencies": [
-          "client-001",
-          "user-002"
-        ],
+        "dependencies": ["client-001", "user-002"],
         "acceptanceCriteria": [
           "Only authenticated users can access chat",
           "User context is passed to all tool calls",
@@ -1025,9 +966,7 @@
         "status": "todo",
         "description": "Render tool results with rich formatting",
         "implementation": "Create components for task cards, project cards, user lists, tables, charts, implement markdown rendering for Claude responses",
-        "dependencies": [
-          "client-002"
-        ],
+        "dependencies": ["client-002"],
         "acceptanceCriteria": [
           "Tasks are shown as interactive cards",
           "Lists and tables are well-formatted",
@@ -1042,9 +981,7 @@
         "status": "todo",
         "description": "Manage conversation history and context",
         "implementation": "Store conversation history in database, implement conversation threads, add ability to clear context, limit context window size",
-        "dependencies": [
-          "client-001"
-        ],
+        "dependencies": ["client-001"],
         "acceptanceCriteria": [
           "Conversations persist across sessions",
           "Users can start new conversations",
@@ -1059,9 +996,7 @@
         "status": "todo",
         "description": "Provide suggested prompts and quick actions",
         "implementation": "Add prompt suggestions based on context, create quick action buttons for common tasks, implement slash commands for power users",
-        "dependencies": [
-          "client-002"
-        ],
+        "dependencies": ["client-002"],
         "acceptanceCriteria": [
           "Relevant suggestions appear in chat",
           "Quick actions work with one click",
@@ -1076,9 +1011,7 @@
         "status": "todo",
         "description": "Handle complex multi-step workflows in chat",
         "implementation": "Implement workflow state management, handle form-like interactions, support confirmation dialogs, enable workflow cancellation",
-        "dependencies": [
-          "client-002"
-        ],
+        "dependencies": ["client-002"],
         "acceptanceCriteria": [
           "Claude can guide users through multi-step processes",
           "Users can go back and correct inputs",
@@ -1093,9 +1026,7 @@
         "status": "todo",
         "description": "Add voice input capability to chat",
         "implementation": "Integrate Web Speech API, add microphone button, implement speech-to-text, handle voice commands",
-        "dependencies": [
-          "client-001"
-        ],
+        "dependencies": ["client-001"],
         "acceptanceCriteria": [
           "Users can speak messages",
           "Transcription is accurate",
@@ -1110,9 +1041,7 @@
         "status": "todo",
         "description": "Export conversations and share insights",
         "implementation": "Add export to PDF/Markdown, generate shareable links, create conversation summaries, implement copy-paste of formatted results",
-        "dependencies": [
-          "client-005"
-        ],
+        "dependencies": ["client-005"],
         "acceptanceCriteria": [
           "Users can export conversations",
           "Shareable links work correctly",
@@ -1127,10 +1056,7 @@
         "status": "todo",
         "description": "Proactive AI insights about projects and tasks",
         "implementation": "Implement background analysis of user's data, surface insights in chat, suggest optimizations, identify blockers and risks",
-        "dependencies": [
-          "client-002",
-          "server-002"
-        ],
+        "dependencies": ["client-002", "server-002"],
         "acceptanceCriteria": [
           "Claude proactively mentions important items",
           "Insights are relevant and timely",
@@ -1165,9 +1091,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/batch.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Assign all high priority tasks to Sarah",
           "Mark all completed tasks as archived",
@@ -1199,9 +1123,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/scheduling.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Suggest a schedule for the Website Redesign project",
           "How can we balance the Engineering team workload this week?",
@@ -1235,9 +1157,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/reports.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Generate a status report for the Q1 Marketing project",
           "Create an executive summary of all active projects",
@@ -1271,9 +1191,7 @@
           }
         ],
         "implementation": "src/mcp-server/tools/integrations.ts",
-        "dependencies": [
-          "server-002"
-        ],
+        "dependencies": ["server-002"],
         "chatExamples": [
           "Send a Slack message to #engineering about the deployment",
           "Create a meeting for tomorrow at 2pm to discuss the project",
@@ -1289,10 +1207,7 @@
         "status": "todo",
         "description": "Test MCP server tools and integration",
         "implementation": "Create tests/mcp-server/ with Jest tests for each tool, mock repository layer, test error handling, test authentication",
-        "dependencies": [
-          "server-001",
-          "testing-001"
-        ],
+        "dependencies": ["server-001", "testing-001"],
         "acceptanceCriteria": [
           "All tools have unit tests",
           "Integration tests for tool chains",
@@ -1307,10 +1222,7 @@
         "status": "todo",
         "description": "E2E tests for chat workflows",
         "implementation": "Create tests/e2e/chat/ with Playwright tests, test common chat workflows, test tool calling flows, test error states",
-        "dependencies": [
-          "client-002",
-          "testing-002"
-        ],
+        "dependencies": ["client-002", "testing-002"],
         "acceptanceCriteria": [
           "Key user journeys are tested",
           "Tool calling flows work end-to-end",
@@ -1327,9 +1239,7 @@
         "status": "todo",
         "description": "Document all MCP tools and APIs",
         "implementation": "Create docs/mcp-server.md with tool catalog, parameter descriptions, examples, integration guide",
-        "dependencies": [
-          "server-001"
-        ],
+        "dependencies": ["server-001"],
         "deliverables": [
           "Tool reference documentation",
           "Integration guide",
@@ -1344,9 +1254,7 @@
         "status": "todo",
         "description": "User documentation for chat interface",
         "implementation": "Create docs/chat-guide.md with usage examples, best practices, slash commands reference, FAQ",
-        "dependencies": [
-          "client-001"
-        ],
+        "dependencies": ["client-001"],
         "deliverables": [
           "Getting started guide",
           "Example conversations",
@@ -1361,10 +1269,7 @@
         "status": "todo",
         "description": "Guide for developers extending the system",
         "implementation": "Create docs/developer-guide.md with architecture overview, adding new tools, extending chat UI, deployment guide",
-        "dependencies": [
-          "server-001",
-          "client-001"
-        ],
+        "dependencies": ["server-001", "client-001"],
         "deliverables": [
           "Architecture documentation",
           "Tool development guide",
@@ -1381,10 +1286,7 @@
         "status": "todo",
         "description": "Deploy MCP server to production",
         "implementation": "Configure server for production, setup process manager (PM2), configure logging and monitoring, setup health checks",
-        "dependencies": [
-          "server-001",
-          "test-mcp-001"
-        ],
+        "dependencies": ["server-001", "test-mcp-001"],
         "acceptanceCriteria": [
           "Server runs reliably in production",
           "Logs are centralized",
@@ -1399,10 +1301,7 @@
         "status": "todo",
         "description": "Deploy chat interface to production",
         "implementation": "Build Next.js app for production, configure environment variables, setup CDN for static assets, configure API routes",
-        "dependencies": [
-          "client-001",
-          "test-mcp-002"
-        ],
+        "dependencies": ["client-001", "test-mcp-002"],
         "acceptanceCriteria": [
           "Chat UI is accessible and fast",
           "MCP connection is secure",
@@ -1417,10 +1316,7 @@
         "status": "todo",
         "description": "Automated testing and deployment pipeline",
         "implementation": "Setup GitHub Actions for tests, automate deployment on merge to main, add staging environment, implement rollback capability",
-        "dependencies": [
-          "test-mcp-001",
-          "test-mcp-002"
-        ],
+        "dependencies": ["test-mcp-001", "test-mcp-002"],
         "acceptanceCriteria": [
           "Tests run automatically on PR",
           "Deployment is automated",
