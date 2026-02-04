@@ -329,7 +329,7 @@
         "id": "task-mcp-001",
         "title": "Task CRUD Tools",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete tasks via MCP",
         "tools": [
           {

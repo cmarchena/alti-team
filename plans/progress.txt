@@ -289,21 +289,21 @@
 - Decision: Noted that code was complete but PRD status was out of sync
 - Learning: Important to keep PRD in sync with actual implementation status
 
-## Iteration 18: Project CRUD Tools (project-mcp-001)
-- Discovered that project-mcp-001 (Project CRUD Tools) was already fully implemented
-- Verified implementation in src/mcp-server/tools/project.ts with:
-  - create_project: Creates a new project with optional dates and status
-  - get_project: Retrieves project details with organization access validation
-  - update_project: Updates project information (name, description, status, dates)
-  - delete_project: Deletes a project with validation
-  - list_projects: Lists projects with optional filters (organizationId, status, limit)
-- Additional tools also implemented:
-  - create_project_from_template: Creates project from template
-  - list_project_templates: Lists available templates
-  - get_project_analytics: Returns completion, velocity, and burndown metrics
-  - get_project_progress: Returns project progress with task completion rates
+## Iteration 19: Task CRUD Tools (task-mcp-001)
+- Discovered that task-mcp-001 (Task CRUD Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/task.ts with:
+  - create_task: Creates a new task with optional assignee, due date, priority, status
+  - get_task: Retrieves task details with organization access validation
+  - update_task: Updates task information (title, description, assignee, due date, priority, status)
+  - delete_task: Deletes a task with validation
+  - list_tasks: Lists tasks with multiple filters (projectId, assigneeId, status, priority, due dates)
+  - search_tasks: Searches tasks by title or description
+  - get_my_tasks: Gets tasks assigned to current user with filters
+  - add_task_comment: Adds a comment to a task
+  - get_task_comments: Gets all comments for a task
 - Confirmed all tools are imported and registered in src/mcp-server/index.ts
-- Updated prd.json to mark project-mcp-001 as "done"
+- Updated prd.json to mark task-mcp-001 as "done"
 - Decision: Noted that code was complete but PRD status was out of sync (pattern continues)
-- Learning: MCP project tools provide comprehensive project management capabilities
-- Note: TypeScript errors exist in API routes (pre-existing, not related to MCP server)
+- Learning: Task CRUD provides comprehensive task management capabilities through MCP
+- Note: TypeScript compilation successful with npx tsc --noEmit
+- Pattern observed: Several MCP tools have been implemented but PRD status not updated to reflect completion
