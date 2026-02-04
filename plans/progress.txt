@@ -307,3 +307,15 @@
 - Learning: Task CRUD provides comprehensive task management capabilities through MCP
 - Note: TypeScript compilation successful with npx tsc --noEmit
 - Pattern observed: Several MCP tools have been implemented but PRD status not updated to reflect completion
+
+## Iteration 20: Task Query Tools (task-mcp-002)
+- Discovered that task-mcp-002 (Task Query Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/task.ts with:
+  - list_tasks: Lists tasks with filters (projectId, assigneeId, status, priority, due dates, limit)
+  - search_tasks: Searches tasks by title or description with optional project filter
+  - get_my_tasks: Gets tasks assigned to current user with filters (status, dueToday, overdue)
+- Confirmed all tools are imported and registered in src/mcp-server/index.ts
+- Updated prd.json to mark task-mcp-002 as "done"
+- Decision: Noted that code was complete but PRD status was out of sync (continuing pattern)
+- Learning: Pattern continues - MCP tools implemented but PRD not updated to reflect completion
+- Note: TypeScript compilation successful with npx tsc --noEmit
