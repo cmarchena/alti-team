@@ -199,7 +199,7 @@
         "id": "project-mcp-001",
         "title": "Project CRUD Tools",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete projects via MCP",
         "tools": [
           {
