@@ -277,3 +277,14 @@
 - Learning: JWT validation with jsonwebtoken provides robust token expiry and signature verification
 - Learning: API keys should be shown only once during generation for security
 - Learning: Multiple authentication methods provide flexibility for different client types
+
+## Iteration 17: User Profile Tools (user-mcp-001, user-mcp-002)
+- Discovered that user-mcp-001 (User Profile Tools) and user-mcp-002 (User Search Tools) were already implemented
+- Verified implementation in src/mcp-server/tools/user.ts with:
+  - get_my_profile: Returns current user's profile information
+  - update_my_profile: Updates user's name, email, and bio
+  - search_users: Searches users by name or email with optional organization filter
+- Confirmed tools are imported and registered in src/mcp-server/index.ts
+- Updated prd.json to mark user-mcp-001 and user-mcp-002 as "done"
+- Decision: Noted that code was complete but PRD status was out of sync
+- Learning: Important to keep PRD in sync with actual implementation status

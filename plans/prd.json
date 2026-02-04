@@ -63,7 +63,7 @@
         "id": "user-mcp-001",
         "title": "User Profile Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "MCP tools for viewing and updating user profiles",
         "tools": [
           {
@@ -93,7 +93,7 @@
         "id": "user-mcp-002",
         "title": "User Search Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Search and find users across organizations",
         "tools": [
           {
