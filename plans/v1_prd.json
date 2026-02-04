@@ -1,0 +1,312 @@
+{
+  "projectName": "AltiTeam",
+  "version": "1.0.0",
+  "description": "Project Management Platform",
+  "features": {
+    "core": {
+      "user-001": {
+        "id": "user-001",
+        "title": "User Registration",
+        "priority": "high",
+        "status": "done",
+        "description": "Allow users to create accounts with email/password",
+        "implementation": "src/app/api/auth/register/route.ts, src/app/auth/signup/page.tsx"
+      },
+      "user-002": {
+        "id": "user-002",
+        "title": "User Authentication",
+        "priority": "high",
+        "status": "done",
+        "description": "Login/logout with NextAuth.js",
+        "implementation": "src/app/api/auth/[...nextauth]/route.ts, src/app/auth/signin/page.tsx, src/components/SessionProvider.tsx"
+      },
+      "user-003": {
+        "id": "user-003",
+        "title": "User Profile",
+        "priority": "medium",
+        "status": "done",
+        "description": "View and edit user profile",
+        "implementation": "src/app/profile/page.tsx"
+      },
+      "org-001": {
+        "id": "org-001",
+        "title": "Create Organization",
+        "priority": "high",
+        "status": "done",
+        "description": "Create organization during signup or separately",
+        "implementation": "src/app/api/organizations/route.ts, src/app/organizations/page.tsx"
+      },
+      "org-002": {
+        "id": "org-002",
+        "title": "Organization Dashboard",
+        "priority": "high",
+        "status": "done",
+        "description": "Main dashboard showing organization overview",
+        "implementation": "src/app/organizations/[id]/page.tsx, src/app/api/organizations/[id]/dashboard/route.ts"
+      },
+      "org-003": {
+        "id": "org-003",
+        "title": "Organization Settings",
+        "priority": "low",
+        "status": "done",
+        "description": "Edit organization name, logo, settings",
+        "implementation": "src/app/organizations/[id]/settings/page.tsx"
+      },
+      "project-001": {
+        "id": "project-001",
+        "title": "Project Creation",
+        "priority": "high",
+        "status": "done",
+        "description": "Create new projects within organization",
+        "implementation": "src/app/api/projects/route.ts, src/app/projects/page.tsx, src/app/projects/[id]/page.tsx"
+      },
+      "project-002": {
+        "id": "project-002",
+        "title": "Project Dashboard",
+        "priority": "high",
+        "status": "done",
+        "description": "View project details, status, progress",
+        "implementation": "src/app/projects/[id]/page.tsx"
+      },
+      "project-003": {
+        "id": "project-003",
+        "title": "Project Settings",
+        "priority": "medium",
+        "status": "done",
+        "description": "Edit project name, description, settings",
+        "implementation": "src/app/projects/[id]/settings/page.tsx"
+      },
+       "project-004": {
+         "id": "project-004",
+         "title": "Project Templates",
+         "priority": "low",
+         "status": "done",
+         "description": "Create and use project templates",
+         "implementation": "src/app/templates/page.tsx"
+       },
+      "task-001": {
+        "id": "task-001",
+        "title": "Task Creation",
+        "priority": "high",
+        "status": "done",
+        "description": "Create tasks with title, description, assignee, due date",
+        "implementation": "src/app/api/tasks/route.ts"
+      },
+      "task-002": {
+        "id": "task-002",
+        "title": "Task Management",
+        "priority": "high",
+        "status": "done",
+        "description": "View, edit, delete, move tasks",
+        "implementation": "src/app/api/tasks/[id]/route.ts"
+      },
+      "task-003": {
+        "id": "task-003",
+        "title": "Task Details View",
+        "priority": "medium",
+        "status": "done",
+        "description": "Full task details modal/page with comments",
+        "implementation": "src/app/tasks/[id]/page.tsx"
+      },
+       "task-004": {
+         "id": "task-004",
+         "title": "Task Filtering & Sorting",
+         "priority": "medium",
+         "status": "done",
+         "description": "Filter by status, assignee, due date; sort by priority, date",
+         "implementation": "src/app/components/TaskFilters.tsx"
+       },
+      "resource-001": {
+        "id": "resource-001",
+        "title": "Resource Creation",
+        "priority": "high",
+        "status": "done",
+        "description": "Add resources (files, links, notes) to projects/tasks",
+        "implementation": "src/app/api/resources/route.ts"
+      },
+      "resource-002": {
+        "id": "resource-002",
+        "title": "Resource Management",
+        "priority": "high",
+        "status": "done",
+        "description": "View, edit, delete resources",
+        "implementation": "src/app/api/resources/[id]/route.ts"
+      },
+      "resource-003": {
+        "id": "resource-003",
+        "title": "File Upload",
+        "priority": "high",
+        "status": "done",
+        "description": "Upload files to resources",
+        "implementation": "src/app/api/upload/route.ts"
+      },
+      "department-001": {
+        "id": "department-001",
+        "title": "Department Management",
+        "priority": "high",
+        "status": "done",
+        "description": "Create and manage departments",
+        "implementation": "src/app/api/departments/route.ts, src/app/api/departments/[id]/route.ts"
+      },
+      "department-002": {
+        "id": "department-002",
+        "title": "Department Hierarchy",
+        "priority": "medium",
+        "status": "done",
+        "description": "View department hierarchy and org chart",
+        "implementation": "src/components/OrgChart.tsx"
+      },
+      "process-001": {
+        "id": "process-001",
+        "title": "Process Creation",
+        "priority": "medium",
+        "status": "done",
+        "description": "Define business processes with steps",
+        "implementation": "src/app/api/processes/route.ts"
+      },
+       "process-002": {
+         "id": "process-002",
+         "title": "Process Execution",
+         "priority": "medium",
+         "status": "done",
+         "description": "Execute processes and track progress",
+         "implementation": "src/app/processes/[id]/execute/page.tsx"
+       },
+       "process-003": {
+         "id": "process-003",
+         "title": "Process Templates",
+         "priority": "low",
+         "status": "done",
+         "description": "Create reusable process templates",
+         "implementation": "src/app/processes/templates/page.tsx"
+       },
+       "process-004": {
+         "id": "process-004",
+         "title": "Process Analytics",
+         "priority": "low",
+         "status": "done",
+         "description": "Track process performance and bottlenecks",
+         "implementation": "src/app/processes/[id]/analytics/page.tsx"
+       },
+      "member-001": {
+        "id": "member-001",
+        "title": "View Team Members",
+        "priority": "high",
+        "status": "done",
+        "description": "View all members in organization/department",
+        "implementation": "src/app/organizations/[id]/members/page.tsx"
+      },
+      "member-002": {
+        "id": "member-002",
+        "title": "Invite Members",
+        "priority": "high",
+        "status": "done",
+        "description": "Send invitations to new team members",
+        "implementation": "src/app/api/invitations/route.ts, src/app/api/invitations/accept/route.ts, src/app/invitations/accept/page.tsx"
+      },
+       "member-003": {
+         "id": "member-003",
+         "title": "Manage Roles",
+         "priority": "medium",
+         "status": "done",
+         "description": "Assign and change member roles (admin, member, viewer)",
+         "implementation": "src/app/organizations/[id]/members/[memberId]/route.ts"
+       },
+      "dashboard-001": {
+        "id": "dashboard-001",
+        "title": "Dashboard Overview",
+        "priority": "high",
+        "status": "done",
+        "description": "Main dashboard with key metrics and activity",
+        "implementation": "src/app/api/dashboard/route.ts, src/app/dashboard/page.tsx"
+      },
+      "team-001": {
+        "id": "team-001",
+        "title": "Team Management",
+        "priority": "high",
+        "status": "done",
+        "description": "Create and manage teams within organization",
+        "implementation": "src/app/teams/page.tsx, src/app/api/teams/route.ts"
+      },
+      "search-001": {
+        "id": "search-001",
+        "title": "Global Search",
+        "priority": "medium",
+        "status": "done",
+        "description": "Search across projects, tasks, resources",
+        "implementation": "src/app/api/search/route.ts"
+      },
+      "comments-001": {
+        "id": "comments-001",
+        "title": "Task Comments",
+        "priority": "medium",
+        "status": "done",
+        "description": "Add comments to tasks",
+        "implementation": "src/app/api/tasks/[id]/comments/route.ts"
+      },
+       "analytics-001": {
+         "id": "analytics-001",
+         "title": "Project Analytics",
+         "priority": "low",
+         "status": "done",
+         "description": "Visualize project progress and team performance",
+         "implementation": "src/app/projects/[id]/analytics/page.tsx"
+       },
+       "settings-001": {
+         "id": "settings-001",
+         "title": "Organization Settings",
+         "priority": "low",
+         "status": "done",
+         "description": "Manage organization-wide settings",
+         "implementation": "src/app/settings/organization/page.tsx"
+       },
+      "notifications-001": {
+        "id": "notifications-001",
+        "title": "Notifications",
+        "priority": "medium",
+        "status": "done",
+        "description": "In-app notifications for assignments, mentions",
+        "implementation": "src/app/api/notifications/route.ts, src/lib/notifications.ts"
+      },
+       "mobile-001": {
+         "id": "mobile-001",
+         "title": "Mobile Responsive",
+         "priority": "medium",
+         "status": "done",
+         "description": "Optimize UI for mobile devices",
+         "implementation": "Tailwind responsive classes throughout"
+       },
+      "testing-001": {
+        "id": "testing-001",
+        "title": "Jest Backend Testing Setup",
+        "priority": "high",
+        "status": "done",
+        "description": "Set up Jest for backend/API testing with basic test suite",
+        "implementation": "Install Jest and dependencies, create jest.config.js, add test scripts to package.json, create tests for auth and organizations API endpoints"
+      },
+      "testing-002": {
+        "id": "testing-002",
+        "title": "Playwright E2E Setup",
+        "priority": "high",
+        "status": "done",
+        "description": "Set up Playwright for end-to-end testing with basic test suite",
+        "implementation": "Install Playwright, create playwright.config.ts, add test scripts to package.json, create basic auth and organization E2E tests"
+      },
+      "refactor-001": {
+        "id": "refactor-001",
+        "title": "Migrate from Prisma to Repository Pattern",
+        "priority": "high",
+        "status": "done",
+        "description": "Replace Prisma with Repository Pattern using in-memory storage for dev and PostgreSQL for prod",
+        "implementation": "Create repository interfaces in src/lib/repositories/types.ts, implement in-memory repositories in src/lib/repositories/in-memory.ts, implement PostgreSQL repositories in src/lib/repositories/postgres.ts, create factory with environment switching in src/lib/repositories/index.ts, update all API routes to use repositories instead of Prisma"
+      }
+    }
+  },
+  "techStack": {
+    "frontend": ["Next.js 14", "React", "Tailwind CSS", "NextAuth.js"],
+    "backend": ["Next.js API Routes", "Repository Pattern"],
+    "database": ["In-Memory (dev)", "PostgreSQL (stage/prod)"],
+    "language": ["TypeScript"],
+    "testing": ["Jest (Backend/API)", "Playwright (E2E Frontend)"]
+  }
+}

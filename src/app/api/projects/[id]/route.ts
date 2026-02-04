@@ -1,91 +1,31 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
+import { getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the project
-async function checkProjectAccess(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      organization: {
-        include: {
-          teamMembers: {
-            where: { userId },
-          },
-        },
-      },
-    },
-  })
-
-  if (!project) return false
-
-  // Owner has access
-  if (project.organization.ownerId === userId) return true
-
-  // Team member has access
-  if (project.organization.teamMembers.length > 0) return true
-
-  return false
-}
-
-// GET /api/projects/[id] - Get a single project with tasks
+// GET /api/projects/[id] - Get a single project
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const hasAccess = await checkProjectAccess(id, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const { id } = await params
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        tasks: {
-          include: {
-            assignedTo: {
-              include: {
-                user: {
-                  select: { id: true, name: true, email: true },
-                },
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        resources: {
-          orderBy: { createdAt: "desc" },
-        },
-        projectMembers: {
-          include: {
-            teamMember: {
-              include: {
-                user: {
-                  select: { id: true, name: true, email: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    })
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(id)
 
-    if (!project) {
+    if (isFailure(projectResult) || !projectResult.data) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ project })
+    return NextResponse.json({ project: projectResult.data })
   } catch (error) {
     console.error("Error fetching project:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -99,31 +39,28 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const hasAccess = await checkProjectAccess(id, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id } = await params
+    const updates = await request.json()
+
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(id)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    const { name, description, status, startDate, endDate } = await request.json()
+    const updateResult = await projectRepository.update(id, updates)
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: {
-        name: name ?? undefined,
-        description: description ?? undefined,
-        status: status ?? undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-      },
-    })
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
+    }
 
-    return NextResponse.json({ message: "Project updated successfully", project })
+    return NextResponse.json({ project: updateResult.data })
   } catch (error) {
     console.error("Error updating project:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -137,20 +74,25 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const hasAccess = await checkProjectAccess(id, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id } = await params
+
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(id)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    await prisma.project.delete({
-      where: { id },
-    })
+    const deleteResult = await projectRepository.delete(id)
+
+    if (isFailure(deleteResult)) {
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Project deleted successfully" })
   } catch (error) {

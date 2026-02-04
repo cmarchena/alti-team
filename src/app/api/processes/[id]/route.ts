@@ -1,27 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the organization
-async function checkOrganizationAccess(organizationId: string, userId: string) {
-  const organization = await prisma.organization.findFirst({
-    where: {
-      id: organizationId,
-      OR: [
-        { ownerId: userId },
-        {
-          teamMembers: {
-            some: { userId },
-          },
-        },
-      ],
-    },
-  })
-  return !!organization
-}
+import { getProcessRepository, getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/processes/[id] - Get a single process
 export async function GET(
@@ -30,34 +11,21 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const process = await prisma.process.findUnique({
-      where: { id },
-      include: {
-        department: {
-          select: { id: true, name: true },
-        },
-        organization: {
-          select: { id: true, name: true },
-        },
-      },
-    })
+    const { id } = await params
 
-    if (!process) {
+    const processRepository = getProcessRepository()
+    const processResult = await processRepository.findById(id)
+
+    if (isFailure(processResult) || !processResult.data) {
       return NextResponse.json({ error: "Process not found" }, { status: 404 })
     }
 
-    const hasAccess = await checkOrganizationAccess(process.organizationId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    return NextResponse.json({ process })
+    return NextResponse.json({ process: processResult.data })
   } catch (error) {
     console.error("Error fetching process:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -71,24 +39,28 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, description, steps } = await request.json()
+    const { id } = await params
+    const updates = await request.json()
 
-    const process = await prisma.process.update({
-      where: { id },
-      data: {
-        name: name ?? undefined,
-        description: description ?? undefined,
-        steps: steps ? (typeof steps === "string" ? steps : JSON.stringify(steps)) : undefined,
-      },
-    })
+    const processRepository = getProcessRepository()
+    const processResult = await processRepository.findById(id)
 
-    return NextResponse.json({ message: "Process updated successfully", process })
+    if (isFailure(processResult) || !processResult.data) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
+    }
+
+    const updateResult = await processRepository.update(id, updates)
+
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ process: updateResult.data })
   } catch (error) {
     console.error("Error updating process:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -102,15 +74,25 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await prisma.process.delete({
-      where: { id },
-    })
+    const { id } = await params
+
+    const processRepository = getProcessRepository()
+    const processResult = await processRepository.findById(id)
+
+    if (isFailure(processResult) || !processResult.data) {
+      return NextResponse.json({ error: "Process not found" }, { status: 404 })
+    }
+
+    const deleteResult = await processRepository.delete(id)
+
+    if (isFailure(deleteResult)) {
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Process deleted successfully" })
   } catch (error) {

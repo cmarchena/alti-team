@@ -1,6 +1,4 @@
-import { PrismaClient } from "@/generated"
-
-const prisma = new PrismaClient()
+import { getNotificationRepository } from "./repositories"
 
 // Helper function to create notifications from other parts of the app
 export async function createNotification(
@@ -9,12 +7,11 @@ export async function createNotification(
   message: string
 ) {
   try {
-    await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        message,
-      },
+    const notificationRepository = getNotificationRepository()
+    await notificationRepository.create({
+      userId,
+      type,
+      message,
     })
   } catch (error) {
     console.error("Error creating notification:", error)

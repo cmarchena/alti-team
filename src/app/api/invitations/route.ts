@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getInvitationRepository, getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// GET /api/invitations - List pending invitations for organization
+// GET /api/invitations - List pending invitations for an organization
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,28 +21,28 @@ export async function GET(request: Request) {
     }
 
     // Verify user has access to this organization
-    const organization = await prisma.organization.findFirst({
-      where: {
-        id: organizationId,
-        ownerId: session.user.id,
-      },
-    })
-
-    if (!organization) {
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
       return NextResponse.json({ error: "Organization not found or access denied" }, { status: 403 })
     }
 
-    const invitations = await prisma.invitation.findMany({
-      where: { organizationId, status: "PENDING" },
-      include: {
-        department: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can view invitations" }, { status: 403 })
+    }
 
-    return NextResponse.json({ invitations })
+    const invitationRepository = getInvitationRepository()
+    const invitationsResult = await invitationRepository.findByOrganizationId(organizationId)
+
+    if (isFailure(invitationsResult)) {
+      return NextResponse.json({ error: invitationsResult.error.message }, { status: 500 })
+    }
+
+    // Filter to pending only
+    const pendingInvitations = invitationsResult.data.filter(i => i.status === "PENDING")
+
+    return NextResponse.json({ invitations: pendingInvitations })
   } catch (error) {
     console.error("Error fetching invitations:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -61,89 +60,46 @@ export async function POST(request: Request) {
 
     const { email, role, organizationId, departmentId } = await request.json()
 
-    // Validate input
-    if (!email || !role || !organizationId) {
-      return NextResponse.json(
-        { error: "Email, role, and organizationId are required" },
-        { status: 400 }
-      )
+    if (!email || !organizationId) {
+      return NextResponse.json({ error: "email and organizationId are required" }, { status: 400 })
     }
 
     // Verify user has access to this organization
-    const organization = await prisma.organization.findFirst({
-      where: {
-        id: organizationId,
-        ownerId: session.user.id,
-      },
-    })
-
-    if (!organization) {
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
       return NextResponse.json({ error: "Organization not found or access denied" }, { status: 403 })
     }
 
-    // Check if user is already a member
-    const existingMember = await prisma.teamMember.findFirst({
-      where: {
-        organizationId,
-        user: { email },
-      },
-    })
-
-    if (existingMember) {
-      return NextResponse.json(
-        { error: "User is already a member of this organization" },
-        { status: 400 }
-      )
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can send invitations" }, { status: 403 })
     }
 
+    const invitationRepository = getInvitationRepository()
+    
     // Check if there's already a pending invitation
-    const existingInvitation = await prisma.invitation.findFirst({
-      where: {
-        organizationId,
-        email: email.toLowerCase(),
-        status: "PENDING",
-      },
-    })
-
-    if (existingInvitation) {
-      return NextResponse.json(
-        { error: "An invitation has already been sent to this email" },
-        { status: 400 }
-      )
+    const existingResult = await invitationRepository.findByOrganizationId(organizationId)
+    if (isSuccess(existingResult)) {
+      const existing = existingResult.data.find(i => i.email === email && i.status === "PENDING")
+      if (existing) {
+        return NextResponse.json({ error: "A pending invitation already exists for this email" }, { status: 409 })
+      }
     }
 
-    // Create invitation (expires in 7 days)
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7)
-
-    const invitation = await prisma.invitation.create({
-      data: {
-        email: email.toLowerCase(),
-        role,
-        organizationId,
-        departmentId: departmentId || null,
-        expiresAt,
-      },
-      include: {
-        department: {
-          select: { id: true, name: true },
-        },
-      },
+    const createResult = await invitationRepository.create({
+      email,
+      role: role || "MEMBER",
+      organizationId,
+      departmentId: departmentId || undefined,
     })
 
-    // TODO: Send email invitation using Resend or similar
-    // For now, we'll return the invitation with the token
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const invitationLink = `${baseUrl}/invitations/accept?token=${invitation.token}`
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json(
-      {
-        message: "Invitation created successfully",
-        invitation: {
-          ...invitation,
-          invitationLink,
-        },
-      },
+      { message: "Invitation sent successfully", invitation: createResult.data },
       { status: 201 }
     )
   } catch (error) {

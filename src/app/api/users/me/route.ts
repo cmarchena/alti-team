@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../../generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
+import { getUserRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/users/me - Get current user profile
 export async function GET(request: Request) {
@@ -14,28 +13,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        _count: {
-          select: {
-            ownedOrganizations: true,
-            teamMemberships: true,
-            notifications: true,
-          },
-        },
-      },
-    })
+    const userRepository = getUserRepository()
+    const userResult = await userRepository.findById(session.user.id)
 
-    if (!user) {
+    if (isFailure(userResult)) {
+      return NextResponse.json({ error: userResult.error.message }, { status: 500 })
+    }
+
+    if (!userResult.data) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user })
+    // Return user without sensitive data
+    return NextResponse.json({
+      user: {
+        id: userResult.data.id,
+        name: userResult.data.name,
+        email: userResult.data.email,
+        createdAt: userResult.data.createdAt,
+      }
+    })
   } catch (error) {
     console.error("Error fetching user:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -53,20 +50,23 @@ export async function PATCH(request: Request) {
 
     const { name } = await request.json()
 
-    const user = await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        name: name ?? undefined,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        updatedAt: true,
-      },
+    const userRepository = getUserRepository()
+    const updateResult = await userRepository.update(session.user.id, {
+      name: name ?? undefined,
     })
 
-    return NextResponse.json({ message: "Profile updated successfully", user })
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      message: "User updated successfully",
+      user: {
+        id: updateResult.data.id,
+        name: updateResult.data.name,
+        email: updateResult.data.email,
+      }
+    })
   } catch (error) {
     console.error("Error updating user:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

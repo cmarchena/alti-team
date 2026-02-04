@@ -1,29 +1,10 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getProcessRepository, getOrganizationRepository, getDepartmentRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the organization
-async function checkOrganizationAccess(organizationId: string, userId: string) {
-  const organization = await prisma.organization.findFirst({
-    where: {
-      id: organizationId,
-      OR: [
-        { ownerId: userId },
-        {
-          teamMembers: {
-            some: { userId },
-          },
-        },
-      ],
-    },
-  })
-  return !!organization
-}
-
-// GET /api/processes - List processes by departmentId or organizationId
+// GET /api/processes - List processes
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -33,51 +14,39 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const departmentId = searchParams.get("departmentId")
     const organizationId = searchParams.get("organizationId")
+    const departmentId = searchParams.get("departmentId")
 
-    if (!departmentId && !organizationId) {
-      return NextResponse.json({ error: "departmentId or organizationId is required" }, { status: 400 })
+    if (!organizationId) {
+      return NextResponse.json({ error: "organizationId is required" }, { status: 400 })
     }
 
-    let whereClause: any = {}
+    // Verify user has access to this organization
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found or access denied" }, { status: 403 })
+    }
+
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    const processRepository = getProcessRepository()
+    let processesResult
 
     if (departmentId) {
-      const dept = await prisma.department.findUnique({
-        where: { id: departmentId },
-        select: { organizationId: true },
-      })
-
-      if (!dept) {
-        return NextResponse.json({ error: "Department not found" }, { status: 404 })
-      }
-
-      const hasAccess = await checkOrganizationAccess(dept.organizationId, session.user.id)
-      if (!hasAccess) {
-        return NextResponse.json({ error: "Access denied" }, { status: 403 })
-      }
-
-      whereClause.departmentId = departmentId
-    } else if (organizationId) {
-      const hasAccess = await checkOrganizationAccess(organizationId, session.user.id)
-      if (!hasAccess) {
-        return NextResponse.json({ error: "Organization not found or access denied" }, { status: 403 })
-      }
-
-      whereClause.organizationId = organizationId
+      processesResult = await processRepository.findByDepartmentId(departmentId)
+    } else {
+      processesResult = await processRepository.findByOrganizationId(organizationId)
     }
 
-    const processes = await prisma.process.findMany({
-      where: whereClause,
-      include: {
-        department: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    if (isFailure(processesResult)) {
+      return NextResponse.json({ error: processesResult.error.message }, { status: 500 })
+    }
 
-    return NextResponse.json({ processes })
+    return NextResponse.json({ processes: processesResult.data })
   } catch (error) {
     console.error("Error fetching processes:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -93,38 +62,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, description, departmentId, steps } = await request.json()
+    const { name, description, steps, organizationId, departmentId } = await request.json()
 
-    if (!name || !departmentId) {
-      return NextResponse.json({ error: "Name and departmentId are required" }, { status: 400 })
+    if (!name || !organizationId || !departmentId || !steps) {
+      return NextResponse.json({ error: "name, organizationId, departmentId, and steps are required" }, { status: 400 })
     }
 
-    const dept = await prisma.department.findUnique({
-      where: { id: departmentId },
-      select: { organizationId: true },
-    })
+    // Verify user has access to this organization
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found or access denied" }, { status: 403 })
+    }
 
-    if (!dept) {
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can create processes" }, { status: 403 })
+    }
+
+    // Verify department exists
+    const departmentRepository = getDepartmentRepository()
+    const deptResult = await departmentRepository.findById(departmentId)
+    
+    if (isFailure(deptResult) || !deptResult.data) {
       return NextResponse.json({ error: "Department not found" }, { status: 404 })
     }
 
-    const hasAccess = await checkOrganizationAccess(dept.organizationId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    if (deptResult.data.organizationId !== organizationId) {
+      return NextResponse.json({ error: "Department must belong to the organization" }, { status: 400 })
     }
 
-    const process = await prisma.process.create({
-      data: {
-        name,
-        description: description || null,
-        departmentId,
-        organizationId: dept.organizationId,
-        steps: typeof steps === "string" ? steps : JSON.stringify(steps || []),
-        createdById: session.user.id,
-      },
+    const processRepository = getProcessRepository()
+    const createResult = await processRepository.create({
+      name,
+      description: description || undefined,
+      steps: JSON.stringify(steps),
+      organizationId,
+      departmentId,
+      createdById: session.user.id,
     })
 
-    return NextResponse.json({ message: "Process created successfully", process }, { status: 201 })
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(
+      { message: "Process created successfully", process: createResult.data },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Error creating process:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
+import { getNotificationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/notifications - Get user notifications
 export async function GET(request: Request) {
@@ -17,26 +16,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const unreadOnly = searchParams.get("unread") === "true"
 
-    const where: Record<string, unknown> = {
-      userId: session.user.id,
+    const notificationRepository = getNotificationRepository()
+    const notificationsResult = await notificationRepository.findByUserId(session.user.id)
+
+    if (isFailure(notificationsResult)) {
+      return NextResponse.json({ error: notificationsResult.error.message }, { status: 500 })
     }
+
+    let notifications = notificationsResult.data
 
     if (unreadOnly) {
-      where.read = false
+      notifications = notifications.filter(n => !n.read)
     }
 
-    const notifications = await prisma.notification.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    })
-
-    const unreadCount = await prisma.notification.count({
-      where: {
-        userId: session.user.id,
-        read: false,
-      },
-    })
+    // Get unread count
+    const unreadCount = notifications.filter(n => !n.read).length
 
     return NextResponse.json({ notifications, unreadCount })
   } catch (error) {
@@ -55,54 +49,51 @@ export async function PATCH(request: Request) {
     }
 
     const { notificationIds, markAllAsRead } = await request.json()
+    const notificationRepository = getNotificationRepository()
 
     if (markAllAsRead) {
-      await prisma.notification.updateMany({
-        where: {
-          userId: session.user.id,
-          read: false,
-        },
-        data: {
-          read: true,
-        },
-      })
+      await notificationRepository.markAllAsRead(session.user.id)
     } else if (notificationIds && Array.isArray(notificationIds)) {
-      await prisma.notification.updateMany({
-        where: {
-          id: { in: notificationIds },
-          userId: session.user.id,
-        },
-        data: {
-          read: true,
-        },
-      })
+      for (const id of notificationIds) {
+        await notificationRepository.markAsRead(id)
+      }
     }
 
-    return NextResponse.json({ message: "Notifications updated" })
+    return NextResponse.json({ message: "Notifications updated successfully" })
   } catch (error) {
     console.error("Error updating notifications:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// POST /api/notifications - Create a notification (for internal use)
+// POST /api/notifications - Create a notification (internal use)
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
-    // This endpoint should only be called by the server, not directly by clients
-    // In production, you'd want additional validation here
+    // Only allow internal calls (or admin users)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { userId, type, message } = await request.json()
 
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        message,
-      },
+    if (!userId || !type || !message) {
+      return NextResponse.json({ error: "userId, type, and message are required" }, { status: 400 })
+    }
+
+    const notificationRepository = getNotificationRepository()
+    const createResult = await notificationRepository.create({
+      userId,
+      type,
+      message,
     })
 
-    return NextResponse.json({ notification })
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ notification: createResult.data }, { status: 201 })
   } catch (error) {
     console.error("Error creating notification:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -120,25 +111,17 @@ export async function DELETE(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const notificationId = searchParams.get("id")
+    const deleteAllRead = searchParams.get("deleteAllRead") === "true"
+
+    const notificationRepository = getNotificationRepository()
 
     if (notificationId) {
-      await prisma.notification.delete({
-        where: {
-          id: notificationId,
-          userId: session.user.id,
-        },
-      })
-    } else {
-      // Delete all read notifications
-      await prisma.notification.deleteMany({
-        where: {
-          userId: session.user.id,
-          read: true,
-        },
-      })
+      await notificationRepository.delete(notificationId)
+    } else if (deleteAllRead) {
+      await notificationRepository.deleteRead(session.user.id)
     }
 
-    return NextResponse.json({ message: "Notifications deleted" })
+    return NextResponse.json({ message: "Notifications deleted successfully" })
   } catch (error) {
     console.error("Error deleting notifications:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

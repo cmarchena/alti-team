@@ -117,11 +117,21 @@ Cada iteración crea un git commit. Revisa:
 Ralph funciona mejor cuando tiene formas de verificar que el código funciona:
 
 - ✅ TypeScript type-checking (`npx tsc --noEmit`)
-- ✅ Linting
-- ✅ E2E tests (Playwright via MCP si es posible)
+- ✅ Linting (`pnpm lint`)
+- ✅ Backend tests con Jest (`pnpm test`)
+- ✅ E2E tests con Playwright (`pnpm test:e2e`)
+- ✅ Build check (`pnpm build`)
 - ✅ CI que debe mantenerse verde
 
 **Regla de oro**: Si Ralph commitea código roto, no sabrá de dónde vino porque perdió el contexto.
+
+**Checklist antes de marcar como "done":**
+1. `npx tsc --noEmit` pasa sin errores
+2. `pnpm lint` pasa sin errores
+3. `pnpm test` pasa (Jest - tests de backend/API)
+4. `pnpm test:e2e` pasa (Playwright - tests E2E de frontend)
+5. Feature probada manualmente en el navegador
+6. Resultados documentados en progress.txt
 
 ### 3. Commits Frecuentes
 
@@ -141,14 +151,32 @@ El LLM **debe** usar progress.txt para:
 
 **Importante**: Usa "append", no "update". Queremos un log histórico.
 
+### 5. Testing Before Completion
+
+Ralph debe probar exhaustivamente cada feature antes de marcarla como "done" en prd.json:
+
+- Ejecutar pruebas unitarias si existen
+
+- Probar manualmente la funcionalidad en el navegador/desarrollo
+
+- Verificar que no haya errores en consola
+
+- Probar casos edge y errores
+
+- Documentar resultados en progress.txt
+
+- Solo marcar como "done" cuando todas las pruebas pasen exitosamente
+
 ## 🎨 Configuración del Proyecto
 
 ### Stack Tecnológico
 
 - **Framework**: Next.js 14 (App Router)
-- **Database**: SQLite con Prisma ORM
+- **Data Layer**: Repository Pattern (in-memory storage)
+- **Database**: In-Memory (single implementation)
 - **Auth**: NextAuth.js con JWT strategy
 - **UI**: shadcn/ui + Tailwind CSS
+- **Testing**: Jest (backend/API) + Playwright (E2E frontend)
 - **Package Manager**: pnpm (preferido sobre npm/yarn)
 
 ### Principios de Código
@@ -178,7 +206,75 @@ async function getUser(userId: string) {
 }
 ```
 
-#### 🏗️ Repository Pattern & Environment-Based Switching
+#### 🎯 Error Handling with Result Type
+
+Este proyecto usa un tipo `Result<T, E>` para manejar errores de forma explícita y type-safe en lugar de exceptions:
+
+```typescript
+// src/lib/result.ts
+export type Result<T, E = Error> = Success<T> | Failure<E>
+
+export interface Success<T> {
+  success: true
+  data: T
+}
+
+export interface Failure<E> {
+  success: false
+  error: E
+}
+
+export function success<T>(data: T): Success<T> {
+  return { success: true, data }
+}
+
+export function failure<E = Error>(error: E): Failure<E> {
+  return { success: false, error }
+}
+
+// Helper type guards
+export function isSuccess<T>(result: Result<T>): result is Success<T> {
+  return result.success === true
+}
+
+export function isFailure<E>(result: Result<unknown, E>): result is Failure<E> {
+  return result.success === false
+}
+```
+
+**Uso en repositorios:**
+```typescript
+// src/lib/repositories/in-memory.ts
+async create(data: CreateUserInput): Promise<Result<User>> {
+  try {
+    const user: User = {
+      id: generateId(),
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    users.push(user)
+    return success(user)
+  } catch (error) {
+    return failure(error instanceof Error ? error : new Error("Unknown error"))
+  }
+}
+```
+
+**Uso en API routes:**
+```typescript
+// src/app/api/auth/register/route.ts
+const createResult = await userRepository.create(data)
+if (isFailure(createResult)) {
+  return NextResponse.json(
+    { error: createResult.error.message },
+    { status: 500 }
+  )
+}
+return NextResponse.json({ user: createResult.data })
+```
+
+#### 🏗️ Repository Pattern (In-Memory Only)
 
 Este proyecto usa el **Repository Pattern** para abstraer el acceso a datos y permitir cambiar entre implementaciones según el entorno:
 
@@ -395,10 +491,292 @@ DATABASE_URL="postgresql://..."
 - ✅ **Type-safe**: TypeScript garantiza que las implementaciones cumplan el contrato
 
 #### 🧪 Testing
-- Escribir tests para funcionalidad crítica
-- Preferir tests unitarios para lógica de negocio
-- Usar mocks para dependencias externas
-- Ejecutar `npx tsc --noEmit` antes de cada commit
+
+**CRÍTICO**: Ralph DEBE probar cada feature antes de marcarla como "done" en prd.json
+
+##### Testing Strategy
+
+Este proyecto usa una estrategia de testing dual:
+- **Jest** para backend/API testing (unit & integration tests)
+- **Playwright** para frontend E2E testing
+
+##### Jest Setup (Backend/API Testing)
+
+**Instalación:**
+```bash
+# Instalar Jest y dependencias
+pnpm add -D jest @types/jest ts-jest @testing-library/jest-dom
+pnpm add -D @testing-library/react @testing-library/react-hooks
+
+# Ejecutar tests
+pnpm test
+pnpm test:watch
+pnpm test:coverage
+```
+
+**Configuración jest.config.js:**
+```javascript
+const nextJest = require('next/jest')
+
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  testEnvironment: 'node',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  testMatch: [
+    '**/__tests__/**/*.test.ts',
+    '**/__tests__/**/*.test.tsx',
+  ],
+  collectCoverageFrom: [
+    'src/app/api/**/*.ts',
+    'src/lib/**/*.ts',
+    '!src/**/*.d.ts',
+  ],
+}
+
+module.exports = createJestConfig(customJestConfig)
+```
+
+**Estructura de tests backend:**
+```
+src/
+├── app/
+│   └── api/
+│       ├── organizations/
+│       │   ├── route.ts
+│       │   └── __tests__/
+│       │       └── route.test.ts
+│       └── tasks/
+│           ├── route.ts
+│           └── __tests__/
+│               └── route.test.ts
+└── lib/
+    ├── auth.ts
+    └── __tests__/
+        └── auth.test.ts
+```
+
+**Ejemplo de test de API:**
+```typescript
+// src/app/api/organizations/route.test.ts
+import { GET, POST } from '../route'
+import { getServerSession } from 'next-auth'
+import { getRepositories } from '@/lib/repositories'
+import { createTestRepositories } from '@/lib/repositories'
+
+jest.mock('next-auth')
+jest.mock('@/lib/repositories')
+
+describe('/api/organizations', () => {
+  let mockOrgRepo: any
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    
+    // Mock repository methods
+    mockOrgRepo = {
+      findByOwnerId: jest.fn(),
+      create: jest.fn(),
+      findById: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    }
+    
+    ;(getRepositories as jest.Mock).mockReturnValue({
+      organizations: mockOrgRepo,
+      users: {},
+      // ... other repos
+    })
+  })
+
+  describe('GET', () => {
+    it('returns 401 if not authenticated', async () => {
+      (getServerSession as jest.Mock).mockResolvedValue(null)
+      
+      const request = new Request('http://localhost:3000/api/organizations')
+      const response = await GET(request)
+      
+      expect(response.status).toBe(401)
+    })
+
+    it('returns organizations for authenticated user', async () => {
+      const mockSession = { user: { id: 'user-1', email: 'test@example.com' } }
+      const mockOrgs = [
+        { id: 'org-1', name: 'Test Org', ownerId: 'user-1' }
+      ]
+      
+      (getServerSession as jest.Mock).mockResolvedValue(mockSession)
+      mockOrgRepo.findByOwnerId.mockResolvedValue(mockOrgs)
+      
+      const request = new Request('http://localhost:3000/api/organizations')
+      const response = await GET(request)
+      const data = await response.json()
+      
+      expect(response.status).toBe(200)
+      expect(data.organizations).toEqual(mockOrgs)
+      expect(mockOrgRepo.findByOwnerId).toHaveBeenCalledWith('user-1')
+    })
+  })
+
+  describe('POST', () => {
+    it('creates organization for authenticated user', async () => {
+      const mockSession = { user: { id: 'user-1', email: 'test@example.com' } }
+      const mockOrg = { id: 'org-1', name: 'New Org', ownerId: 'user-1' }
+      
+      (getServerSession as jest.Mock).mockResolvedValue(mockSession)
+      mockOrgRepo.create.mockResolvedValue(mockOrg)
+      
+      const request = new Request('http://localhost:3000/api/organizations', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'New Org', description: 'Test' }),
+      })
+      const response = await POST(request)
+      const data = await response.json()
+      
+      expect(response.status).toBe(201)
+      expect(data.organization).toEqual(mockOrg)
+      expect(mockOrgRepo.create).toHaveBeenCalledWith({
+        name: 'New Org',
+        description: 'Test',
+        ownerId: 'user-1'
+      })
+    })
+  })
+})
+```
+
+**Scripts en package.json:**
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  }
+}
+```
+
+##### Playwright Setup (Frontend E2E Testing)
+
+**Setup de Playwright:**
+```bash
+# Instalar Playwright
+pnpm add -D @playwright/test
+
+# Instalar browsers
+npx playwright install
+
+# Ejecutar tests
+pnpm test:e2e
+
+# Ejecutar tests en modo UI (debugging)
+pnpm test:e2e:ui
+
+# Ejecutar tests en modo headed (ver el browser)
+pnpm test:e2e:headed
+```
+
+**Estructura de tests:**
+```
+tests/
+├── e2e/
+│   ├── auth.spec.ts           # Tests de autenticación
+│   ├── organizations.spec.ts  # Tests de organizaciones
+│   ├── projects.spec.ts       # Tests de proyectos
+│   ├── tasks.spec.ts          # Tests de tareas
+│   └── ...
+└── fixtures/
+    └── test-helpers.ts         # Helpers y fixtures reutilizables
+```
+
+**Ejemplo de test E2E:**
+```typescript
+// tests/e2e/auth.spec.ts
+import { test, expect } from '@playwright/test'
+
+test.describe('Authentication', () => {
+  test('user can sign up and sign in', async ({ page }) => {
+    // Sign up
+    await page.goto('/auth/signup')
+    await page.fill('input[name="email"]', 'test@example.com')
+    await page.fill('input[name="password"]', 'password123')
+    await page.fill('input[name="name"]', 'Test User')
+    await page.click('button[type="submit"]')
+    
+    // Should redirect to dashboard
+    await expect(page).toHaveURL(/\/dashboard/)
+    await expect(page.locator('text=Test User')).toBeVisible()
+  })
+  
+  test('shows error for invalid credentials', async ({ page }) => {
+    await page.goto('/auth/signin')
+    await page.fill('input[name="email"]', 'wrong@example.com')
+    await page.fill('input[name="password"]', 'wrongpass')
+    await page.click('button[type="submit"]')
+    
+    await expect(page.locator('text=Invalid credentials')).toBeVisible()
+  })
+})
+```
+
+**Reglas de Testing:**
+1. **Ejecutar TypeScript check**: `npx tsc --noEmit` antes de cada commit
+2. **Ejecutar Jest tests**: `pnpm test` para tests de backend/API
+3. **Ejecutar Playwright tests**: `pnpm test:e2e` para tests E2E de frontend
+4. **Documentar pruebas**: En progress.txt, describir qué se probó y resultados
+5. **NO marcar como "done"**: Si los tests fallan, dejar como "pending" y documentar
+6. **Tests para cada feature**: 
+   - APIs: Al menos un test Jest por endpoint
+   - UI: Al menos un test E2E Playwright por flujo de usuario
+7. **Usar mocks**: En Jest, mockear Prisma y NextAuth para tests aislados
+8. **Usar fixtures**: En Playwright, crear helpers reutilizables para login, crear datos, etc.
+
+**Cuándo usar cada tipo de test:**
+- **Jest**: Para lógica de negocio, validaciones, API endpoints, funciones helper
+- **Playwright**: Para flujos de usuario completos, navegación, interacciones UI
+
+**Configuración en package.json:**
+```json
+{
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
+  }
+}
+```
+
+**playwright.config.ts básico:**
+```typescript
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+  ],
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+})
+```
 
 #### 🔧 Functional, No-Class Approach
 - **Preferir funciones sobre clases**
@@ -501,15 +879,33 @@ export function MyComponent() {
 }
 ```
 
-### Prisma Configuration
+### Data Access Configuration
 
-El cliente Prisma se genera en `src/generated/`. Importar así:
+Este proyecto usa el **Repository Pattern** para abstraer el acceso a datos:
 
+**En desarrollo (NODE_ENV=development):**
+- Usa repositorios in-memory (sin base de datos)
+- Rápido, sin configuración
+- Datos se pierden al reiniciar
+
+**En stage/production:**
+- Usa repositorios Prisma (base de datos real)
+- El cliente Prisma se genera en `src/generated/`
+- Importar así: `import { PrismaClient } from "@/generated"`
+
+**Uso en API routes:**
 ```typescript
-import { PrismaClient } from "@/generated"
+import { getRepositories } from "@/lib/repositories"
+
+const repos = getRepositories() // Automáticamente selecciona implementación según NODE_ENV
+
+export async function GET(request: Request) {
+  const organizations = await repos.organizations.findByOwnerId(userId)
+  return NextResponse.json({ organizations })
+}
 ```
 
-**No usar** imports relativos como `../../../generated`.
+**No usar** imports directos de Prisma en routes. Siempre usar repositorios.
 
 ### Auth Configuration
 

@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if user is the owner of the organization
-async function checkOrganizationOwnership(organizationId: string, userId: string) {
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { ownerId: true },
-  })
-  return organization?.ownerId === userId
-}
+import { getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/organizations/[id] - Get a single organization
 export async function GET(
@@ -30,34 +20,24 @@ export async function GET(
       )
     }
 
-    const organization = await prisma.organization.findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true },
-        },
-        departments: true,
-        teamMembers: true,
-        projects: true,
-      },
-    })
+    const organizationRepository = getOrganizationRepository()
+    const organizationResult = await organizationRepository.findById(id)
 
-    if (!organization) {
+    if (isFailure(organizationResult)) {
+      return NextResponse.json(
+        { error: organizationResult.error.message },
+        { status: 500 }
+      )
+    }
+
+    if (!organizationResult.data) {
       return NextResponse.json(
         { error: "Organization not found" },
         { status: 404 }
       )
     }
 
-    // Check if user has access (owner only for now)
-    if (organization.ownerId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      )
-    }
-
-    return NextResponse.json({ organization })
+    return NextResponse.json({ organization: organizationResult.data })
   } catch (error) {
     console.error("Error fetching organization:", error)
     return NextResponse.json(
@@ -84,8 +64,16 @@ export async function PATCH(
     }
 
     // Check ownership
-    const isOwner = await checkOrganizationOwnership(id, session.user.id)
-    if (!isOwner) {
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(id)
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      )
+    }
+
+    if (orgResult.data.ownerId !== session.user.id) {
       return NextResponse.json(
         { error: "Only the owner can update this organization" },
         { status: 403 }
@@ -94,16 +82,20 @@ export async function PATCH(
 
     const { name, description } = await request.json()
 
-    const organization = await prisma.organization.update({
-      where: { id },
-      data: {
-        name,
-        description: description ?? undefined,
-      },
+    const updateResult = await organizationRepository.update(id, {
+      name,
+      description: description ?? undefined,
     })
 
+    if (isFailure(updateResult)) {
+      return NextResponse.json(
+        { error: updateResult.error.message },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { message: "Organization updated successfully", organization }
+      { message: "Organization updated successfully", organization: updateResult.data }
     )
   } catch (error) {
     console.error("Error updating organization:", error)
@@ -131,17 +123,30 @@ export async function DELETE(
     }
 
     // Check ownership
-    const isOwner = await checkOrganizationOwnership(id, session.user.id)
-    if (!isOwner) {
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(id)
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      )
+    }
+
+    if (orgResult.data.ownerId !== session.user.id) {
       return NextResponse.json(
         { error: "Only the owner can delete this organization" },
         { status: 403 }
       )
     }
 
-    await prisma.organization.delete({
-      where: { id },
-    })
+    const deleteResult = await organizationRepository.delete(id)
+
+    if (isFailure(deleteResult)) {
+      return NextResponse.json(
+        { error: deleteResult.error.message },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       message: "Organization deleted successfully",

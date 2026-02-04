@@ -1,35 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the project
-async function checkProjectAccess(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      organization: {
-        include: {
-          teamMembers: {
-            where: { userId },
-          },
-        },
-      },
-    },
-  })
-
-  if (!project) return false
-
-  // Owner has access
-  if (project.organization.ownerId === userId) return true
-
-  // Team member has access
-  if (project.organization.teamMembers.length > 0) return true
-
-  return false
-}
+import { getResourceRepository, getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/resources/[id] - Get a single resource
 export async function GET(
@@ -38,35 +11,29 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const resource = await prisma.resource.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: { id: true, name: true },
-        },
-        uploadedBy: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    })
+    const { id } = await params
 
-    if (!resource) {
+    const resourceRepository = getResourceRepository()
+    const resourceResult = await resourceRepository.findById(id)
+
+    if (isFailure(resourceResult) || !resourceResult.data) {
       return NextResponse.json({ error: "Resource not found" }, { status: 404 })
     }
 
-    // Check access to the project
-    const hasAccess = await checkProjectAccess(resource.projectId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    // Verify user has access to the project
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(resourceResult.data.projectId)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ resource })
+    return NextResponse.json({ resource: resourceResult.data })
   } catch (error) {
     console.error("Error fetching resource:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -80,29 +47,28 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, type, url } = await request.json()
+    const { id } = await params
+    const updates = await request.json()
 
-    const resource = await prisma.resource.update({
-      where: { id },
-      data: {
-        name: name ?? undefined,
-        type: type ?? undefined,
-        url: url ?? undefined,
-      },
-      include: {
-        uploadedBy: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    })
+    const resourceRepository = getResourceRepository()
+    const resourceResult = await resourceRepository.findById(id)
 
-    return NextResponse.json({ message: "Resource updated successfully", resource })
+    if (isFailure(resourceResult) || !resourceResult.data) {
+      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
+    }
+
+    const updateResult = await resourceRepository.update(id, updates)
+
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ resource: updateResult.data })
   } catch (error) {
     console.error("Error updating resource:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -116,15 +82,25 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await prisma.resource.delete({
-      where: { id },
-    })
+    const { id } = await params
+
+    const resourceRepository = getResourceRepository()
+    const resourceResult = await resourceRepository.findById(id)
+
+    if (isFailure(resourceResult) || !resourceResult.data) {
+      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
+    }
+
+    const deleteResult = await resourceRepository.delete(id)
+
+    if (isFailure(deleteResult)) {
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Resource deleted successfully" })
   } catch (error) {

@@ -1,34 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the task's project
-async function checkTaskAccess(taskId: string, userId: string) {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: {
-      project: {
-        include: {
-          organization: {
-            include: {
-              teamMembers: {
-                where: { userId },
-              },
-            },
-          },
-        },
-      },
-    },
-  })
-
-  if (!task) return false
-  if (task.project.organization.ownerId === userId) return true
-  if (task.project.organization.teamMembers.length > 0) return true
-  return false
-}
+import { getTaskRepository, getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/tasks/[id] - Get a single task
 export async function GET(
@@ -37,41 +11,29 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const task = await prisma.task.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: { id: true, name: true },
-        },
-        assignedTo: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-        comments: {
-          include: {
-            author: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-    })
+    const { id } = await params
 
-    if (!task) {
+    const taskRepository = getTaskRepository()
+    const taskResult = await taskRepository.findById(id)
+
+    if (isFailure(taskResult) || !taskResult.data) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ task })
+    // Verify user has access to the project
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(taskResult.data.projectId)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ task: taskResult.data })
   } catch (error) {
     console.error("Error fetching task:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -85,36 +47,36 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { title, description, status, priority, assignedToId, dueDate } = await request.json()
+    const { id } = await params
+    const updates = await request.json()
 
-    const task = await prisma.task.update({
-      where: { id },
-      data: {
-        title: title ?? undefined,
-        description: description ?? undefined,
-        status: status ?? undefined,
-        priority: priority ?? undefined,
-        assignedToId: assignedToId ?? undefined,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-      },
-      include: {
-        assignedTo: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
-    })
+    const taskRepository = getTaskRepository()
+    const taskResult = await taskRepository.findById(id)
 
-    return NextResponse.json({ message: "Task updated successfully", task })
+    if (isFailure(taskResult) || !taskResult.data) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+
+    // Verify user has access to the project
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(taskResult.data.projectId)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    const updateResult = await taskRepository.update(id, updates)
+
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ task: updateResult.data })
   } catch (error) {
     console.error("Error updating task:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -128,15 +90,33 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await prisma.task.delete({
-      where: { id },
-    })
+    const { id } = await params
+
+    const taskRepository = getTaskRepository()
+    const taskResult = await taskRepository.findById(id)
+
+    if (isFailure(taskResult) || !taskResult.data) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
+    }
+
+    // Verify user has access to the project
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(taskResult.data.projectId)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    const deleteResult = await taskRepository.delete(id)
+
+    if (isFailure(deleteResult)) {
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Task deleted successfully" })
   } catch (error) {

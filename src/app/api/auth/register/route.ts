@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import bcrypt from "bcryptjs"
-
-const prisma = new PrismaClient()
-
-// DEBUG: Log Prisma client initialization
-console.log("[DEBUG] Register route - Prisma client:", {
-  user: prisma.user ? "available" : "missing",
-  organization: prisma.organization ? "available" : "missing",
-})
+import { getUserRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 export async function POST(request: Request) {
   try {
@@ -22,12 +15,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    })
+    const userRepository = getUserRepository()
 
-    if (existingUser) {
+    // Check if user already exists
+    const existingUserResult = await userRepository.findByEmail(email)
+    if (isFailure(existingUserResult)) {
+      return NextResponse.json(
+        { error: existingUserResult.error.message },
+        { status: 500 }
+      )
+    }
+
+    if (existingUserResult.data) {
       return NextResponse.json(
         { error: "User with this email already exists" },
         { status: 409 }
@@ -38,16 +37,28 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
+    const createUserResult = await userRepository.create({
+      name,
+      email,
+      password: hashedPassword,
     })
 
+    if (isFailure(createUserResult)) {
+      return NextResponse.json(
+        { error: createUserResult.error.message },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { message: "User created successfully", user: { id: user.id, email: user.email, name: user.name } },
+      { 
+        message: "User created successfully", 
+        user: { 
+          id: createUserResult.data.id, 
+          email: createUserResult.data.email, 
+          name: createUserResult.data.name 
+        } 
+      },
       { status: 201 }
     )
   } catch (error) {

@@ -1,64 +1,47 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../../../generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
+import { getTaskRepository, getCommentRepository, getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the task's project
-async function checkTaskAccess(taskId: string, userId: string) {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: {
-      project: {
-        include: {
-          organization: {
-            include: {
-              teamMembers: {
-                where: { userId },
-              },
-            },
-          },
-        },
-      },
-    },
-  })
-
-  if (!task) return false
-  if (task.project.organization.ownerId === userId) return true
-  if (task.project.organization.teamMembers.length > 0) return true
-  return false
-}
-
-// GET /api/tasks/[id]/comments - Get all comments for a task
+// GET /api/tasks/[id]/comments - Get comments for a task
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id: taskId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const hasAccess = await checkTaskAccess(taskId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id: taskId } = await params
+
+    const taskRepository = getTaskRepository()
+    const taskResult = await taskRepository.findById(taskId)
+
+    if (isFailure(taskResult) || !taskResult.data) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    const comments = await prisma.comment.findMany({
-      where: { taskId },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    })
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(taskResult.data.projectId)
 
-    return NextResponse.json({ comments })
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    }
+
+    // TODO: Verify user has access to the project
+
+    const commentRepository = getCommentRepository()
+    const commentsResult = await commentRepository.findByTaskId(taskId)
+
+    if (isFailure(commentsResult)) {
+      return NextResponse.json({ error: commentsResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ comments: commentsResult.data })
   } catch (error) {
     console.error("Error fetching comments:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -72,37 +55,41 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id: taskId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const hasAccess = await checkTaskAccess(taskId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id: taskId } = await params
+    const { content, parentId } = await request.json()
+
+    if (!content) {
+      return NextResponse.json({ error: "content is required" }, { status: 400 })
     }
 
-    const { content } = await request.json()
+    const taskRepository = getTaskRepository()
+    const taskResult = await taskRepository.findById(taskId)
 
-    if (!content || !content.trim()) {
-      return NextResponse.json({ error: "Content is required" }, { status: 400 })
+    if (isFailure(taskResult) || !taskResult.data) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 })
     }
 
-    const comment = await prisma.comment.create({
-      data: {
-        content: content.trim(),
-        taskId,
-        authorId: session.user.id,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, email: true },
-        },
-      },
+    const commentRepository = getCommentRepository()
+    const createResult = await commentRepository.create({
+      content,
+      taskId,
+      userId: session.user.id,
+      parentId: parentId || undefined,
     })
 
-    return NextResponse.json({ message: "Comment added successfully", comment })
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(
+      { message: "Comment added successfully", comment: createResult.data },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Error creating comment:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

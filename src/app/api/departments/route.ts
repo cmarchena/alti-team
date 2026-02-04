@@ -1,26 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if adding parentId would create a cycle
-async function wouldCreateCycle(departmentId: string, parentId: string | null): Promise<boolean> {
-  if (!parentId) return false
-  if (departmentId === parentId) return true
-
-  let currentId: string | null = parentId
-  while (currentId) {
-    if (currentId === departmentId) return true
-    const dept: { parentId: string | null } | null = await prisma.department.findUnique({
-      where: { id: currentId },
-      select: { parentId: true },
-    })
-    currentId = dept?.parentId ?? null
-  }
-  return false
-}
+import { getDepartmentRepository, getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/departments - List departments by organizationId
 export async function GET(request: Request) {
@@ -45,37 +27,34 @@ export async function GET(request: Request) {
     }
 
     // Verify user has access to this organization
-    const organization = await prisma.organization.findFirst({
-      where: {
-        id: organizationId,
-        ownerId: session.user.id,
-      },
-    })
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
 
-    if (!organization) {
+    if (isFailure(orgResult) || !orgResult.data) {
       return NextResponse.json(
         { error: "Organization not found or access denied" },
         { status: 403 }
       )
     }
 
-    const departments = await prisma.department.findMany({
-      where: { organizationId },
-      include: {
-        parent: {
-          select: { id: true, name: true },
-        },
-        children: {
-          select: { id: true, name: true },
-        },
-        _count: {
-          select: { teamMembers: true, processes: true },
-        },
-      },
-      orderBy: { name: "asc" },
-    })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      )
+    }
 
-    return NextResponse.json({ departments })
+    const departmentRepository = getDepartmentRepository()
+    const departmentsResult = await departmentRepository.findByOrganizationId(organizationId)
+
+    if (isFailure(departmentsResult)) {
+      return NextResponse.json(
+        { error: departmentsResult.error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ departments: departmentsResult.data })
   } catch (error) {
     console.error("Error fetching departments:", error)
     return NextResponse.json(
@@ -99,7 +78,6 @@ export async function POST(request: Request) {
 
     const { name, description, organizationId, parentId } = await request.json()
 
-    // Validate input
     if (!name || !organizationId) {
       return NextResponse.json(
         { error: "Name and organizationId are required" },
@@ -108,50 +86,57 @@ export async function POST(request: Request) {
     }
 
     // Verify user has access to this organization
-    const organization = await prisma.organization.findFirst({
-      where: {
-        id: organizationId,
-        ownerId: session.user.id,
-      },
-    })
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
 
-    if (!organization) {
+    if (isFailure(orgResult) || !orgResult.data) {
       return NextResponse.json(
         { error: "Organization not found or access denied" },
         { status: 403 }
       )
     }
 
-    // If parentId is provided, verify it exists in the same organization
-    if (parentId) {
-      const parentDept = await prisma.department.findFirst({
-        where: { id: parentId, organizationId },
-      })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json(
+        { error: "Only organization owner can create departments" },
+        { status: 403 }
+      )
+    }
 
-      if (!parentDept) {
+    // Validate parent department if provided
+    if (parentId) {
+      const parentResult = await departmentRepository.findById(parentId)
+      if (isFailure(parentResult) || !parentResult.data) {
         return NextResponse.json(
-          { error: "Parent department not found in this organization" },
+          { error: "Parent department not found" },
+          { status: 400 }
+        )
+      }
+      if (parentResult.data.organizationId !== organizationId) {
+        return NextResponse.json(
+          { error: "Parent department must be in the same organization" },
           { status: 400 }
         )
       }
     }
 
-    const department = await prisma.department.create({
-      data: {
-        name,
-        description: description || null,
-        organizationId,
-        parentId: parentId || null,
-      },
-      include: {
-        parent: {
-          select: { id: true, name: true },
-        },
-      },
+    const departmentRepository = getDepartmentRepository()
+    const createResult = await departmentRepository.create({
+      name,
+      description: description || undefined,
+      organizationId,
+      parentId: parentId || undefined,
     })
 
+    if (isFailure(createResult)) {
+      return NextResponse.json(
+        { error: createResult.error.message },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { message: "Department created successfully", department },
+      { message: "Department created successfully", department: createResult.data },
       { status: 201 }
     )
   } catch (error) {

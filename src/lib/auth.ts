@@ -1,13 +1,10 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { PrismaClient } from "@/generated"
+import { getUserRepository } from "./repositories"
 import bcrypt from "bcryptjs"
-
-const prisma = new PrismaClient()
+import { isSuccess, isFailure } from "./result"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -20,15 +17,14 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email
-          }
-        })
+        const userRepository = getUserRepository()
+        const userResult = await userRepository.findByEmail(credentials.email)
 
-        if (!user) {
+        if (isFailure(userResult) || !userResult.data) {
           return null
         }
+
+        const user = userResult.data
 
         // Check if user has a password (registered via signup) or use demo mode
         if (user.password) {

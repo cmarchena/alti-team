@@ -1,103 +1,70 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
+import { getInvitationRepository, getOrganizationRepository, getTeamMemberRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // POST /api/invitations/accept - Accept an invitation
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { token } = await request.json()
+    const { token, organizationId } = await request.json()
 
-    if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
+    if (!token || !organizationId) {
+      return NextResponse.json({ error: "token and organizationId are required" }, { status: 400 })
     }
 
-    // Find the invitation
-    const invitation = await prisma.invitation.findUnique({
-      where: { token },
-      include: {
-        organization: true,
-        department: true,
-      },
-    })
+    const invitationRepository = getInvitationRepository()
+    const invitationResult = await invitationRepository.findByToken(token)
 
-    if (!invitation) {
-      return NextResponse.json({ error: "Invalid invitation" }, { status: 400 })
+    if (isFailure(invitationResult) || !invitationResult.data) {
+      return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 400 })
     }
+
+    const invitation = invitationResult.data
 
     if (invitation.status !== "PENDING") {
-      return NextResponse.json({ error: "Invitation has already been used or expired" }, { status: 400 })
+      return NextResponse.json({ error: "Invitation has already been processed" }, { status: 400 })
     }
 
-    if (invitation.expiresAt < new Date()) {
-      // Mark as expired
-      await prisma.invitation.update({
-        where: { id: invitation.id },
-        data: { status: "EXPIRED" },
-      })
-      return NextResponse.json({ error: "Invitation has expired" }, { status: 400 })
+    if (invitation.email.toLowerCase() !== session.user.email.toLowerCase()) {
+      return NextResponse.json({ error: "This invitation was sent to a different email address" }, { status: 403 })
     }
 
-    // Verify the email matches
-    if (session.user.email !== invitation.email) {
-      return NextResponse.json(
-        { error: "This invitation was sent to a different email address" },
-        { status: 400 }
-      )
+    if (invitation.organizationId !== organizationId) {
+      return NextResponse.json({ error: "Organization mismatch" }, { status: 400 })
     }
 
-    // Check if user is already a member
-    const existingMember = await prisma.teamMember.findFirst({
-      where: {
-        organizationId: invitation.organizationId,
-        userId: session.user.id,
-      },
+    // Accept the invitation
+    const updateResult = await invitationRepository.update(invitation.id, {
+      status: "ACCEPTED",
     })
 
-    if (existingMember) {
-      return NextResponse.json(
-        { error: "You are already a member of this organization" },
-        { status: 400 }
-      )
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
     }
 
-    // Create the team member
-    const teamMember = await prisma.teamMember.create({
-      data: {
-        userId: session.user.id,
-        organizationId: invitation.organizationId,
-        departmentId: invitation.departmentId,
-        role: invitation.role,
-      },
+    // Add user to organization as member (create TeamMember)
+    const teamMemberRepository = getTeamMemberRepository()
+    const memberResult = await teamMemberRepository.create({
+      userId: session.user.id,
+      organizationId: invitation.organizationId,
+      role: invitation.role,
+      departmentId: invitation.departmentId || undefined,
     })
 
-    // Mark invitation as accepted
-    await prisma.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: "ACCEPTED",
-        acceptedAt: new Date(),
-      },
-    })
+    if (isFailure(memberResult)) {
+      return NextResponse.json({ error: "Failed to add member to organization" }, { status: 500 })
+    }
 
-    return NextResponse.json({
+    return NextResponse.json({ 
       message: "Successfully joined the organization",
-      teamMember: {
-        id: teamMember.id,
-        role: teamMember.role,
-        organization: {
-          id: invitation.organization.id,
-          name: invitation.organization.name,
-        },
-      },
+      organizationId: invitation.organizationId 
     })
   } catch (error) {
     console.error("Error accepting invitation:", error)

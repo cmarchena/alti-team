@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
+import { getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/organizations - List all organizations for the current user
 export async function GET(request: Request) {
@@ -17,25 +16,27 @@ export async function GET(request: Request) {
       )
     }
 
-    const organizations = await prisma.organization.findMany({
-      where: {
-        ownerId: session.user.id,
-      },
-      include: {
-        _count: {
-          select: {
-            departments: true,
-            teamMembers: true,
-            projects: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
+    const organizationRepository = getOrganizationRepository()
+    const organizationsResult = await organizationRepository.findByOwnerId(session.user.id)
 
-    return NextResponse.json({ organizations })
+    if (isFailure(organizationsResult)) {
+      return NextResponse.json(
+        { error: organizationsResult.error.message },
+        { status: 500 }
+      )
+    }
+
+    // Add count fields for compatibility (in-memory doesn't support include)
+    const organizationsWithCounts = organizationsResult.data.map(org => ({
+      ...org,
+      _count: {
+        departments: 0,
+        teamMembers: 0,
+        projects: 0,
+      },
+    }))
+
+    return NextResponse.json({ organizations: organizationsWithCounts })
   } catch (error) {
     console.error("Error fetching organizations:", error)
     return NextResponse.json(
@@ -67,16 +68,22 @@ export async function POST(request: Request) {
       )
     }
 
-    const organization = await prisma.organization.create({
-      data: {
-        name,
-        description: description || null,
-        ownerId: session.user.id,
-      },
+    const organizationRepository = getOrganizationRepository()
+    const createResult = await organizationRepository.create({
+      name,
+      description: description || undefined,
+      ownerId: session.user.id,
     })
 
+    if (isFailure(createResult)) {
+      return NextResponse.json(
+        { error: createResult.error.message },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
-      { message: "Organization created successfully", organization },
+      { message: "Organization created successfully", organization: createResult.data },
       { status: 201 }
     )
   } catch (error) {

@@ -1,243 +1,151 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
+import { getTeamMemberRepository, getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// Helper function to check if user is admin/owner of the organization
-async function checkAdminAccess(organizationId: string, userId: string) {
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    include: {
-      teamMembers: {
-        where: { userId },
-      },
-    },
-  })
-
-  if (!organization) return false
-
-  // Owner has admin access
-  if (organization.ownerId === userId) return true
-
-  // Check if user is an admin team member
-  const membership = organization.teamMembers[0]
-  if (membership?.role === "ADMIN") return true
-
-  return false
-}
-
-// GET /api/organizations/[id]/members/[memberId] - Get a specific member
+// GET /api/organizations/[id]/members/[memberId] - Get a single team member
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id: organizationId, memberId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user has access to the organization
-    const hasAccess = await checkAdminAccess(organizationId, session.user.id)
-    if (!hasAccess) {
-      // Check if user is at least a member
-      const membership = await prisma.teamMember.findFirst({
-        where: {
-          organizationId,
-          userId: session.user.id,
-        },
-      })
-      if (!membership) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      }
+    const { id: organizationId, memberId } = await params
+
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
-    const member = await prisma.teamMember.findFirst({
-      where: {
-        id: memberId,
-        organizationId,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, createdAt: true },
-        },
-        department: {
-          select: { id: true, name: true },
-        },
-      },
-    })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can view members" }, { status: 403 })
+    }
 
-    if (!member) {
+    const teamMemberRepository = getTeamMemberRepository()
+    const memberResult = await teamMemberRepository.findById(memberId)
+
+    if (isFailure(memberResult) || !memberResult.data) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ member })
+    if (memberResult.data.organizationId !== organizationId) {
+      return NextResponse.json({ error: "Member not found in this organization" }, { status: 404 })
+    }
+
+    return NextResponse.json({ member: memberResult.data })
   } catch (error) {
-    console.error("Error fetching member:", error)
+    console.error("Error fetching team member:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// PATCH /api/organizations/[id]/members/[memberId] - Update member role/position
+// PATCH /api/organizations/[id]/members/[memberId] - Update a team member's role
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id: organizationId, memberId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only admins/owners can update member roles
-    const hasAccess = await checkAdminAccess(organizationId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id: organizationId, memberId } = await params
+    const { role } = await request.json()
+
+    if (!role) {
+      return NextResponse.json({ error: "role is required" }, { status: 400 })
     }
 
-    const { role, position, departmentId } = await request.json()
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
 
-    // Validate role
-    const validRoles = ["ADMIN", "MANAGER", "MEMBER"]
-    if (role && !validRoles.includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
-    // Check if member exists
-    const existingMember = await prisma.teamMember.findFirst({
-      where: {
-        id: memberId,
-        organizationId,
-      },
-    })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can update members" }, { status: 403 })
+    }
 
-    if (!existingMember) {
+    const teamMemberRepository = getTeamMemberRepository()
+    const memberResult = await teamMemberRepository.findById(memberId)
+
+    if (isFailure(memberResult) || !memberResult.data) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 })
     }
 
-    // Prevent demoting the organization owner
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-    })
-
-    if (organization?.ownerId === existingMember.userId && role && role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Cannot change the role of the organization owner" },
-        { status: 400 }
-      )
+    if (memberResult.data.organizationId !== organizationId) {
+      return NextResponse.json({ error: "Member not found in this organization" }, { status: 404 })
     }
 
-    // Validate department if provided
-    if (departmentId) {
-      const department = await prisma.department.findFirst({
-        where: {
-          id: departmentId,
-          organizationId,
-        },
-      })
-      if (!department) {
-        return NextResponse.json({ error: "Department not found" }, { status: 400 })
-      }
+    const updateResult = await teamMemberRepository.update(memberId, { role })
+
+    if (isFailure(updateResult)) {
+      return NextResponse.json({ error: updateResult.error.message }, { status: 500 })
     }
 
-    const member = await prisma.teamMember.update({
-      where: { id: memberId },
-      data: {
-        role: role ?? undefined,
-        position: position ?? undefined,
-        departmentId: departmentId === null ? null : departmentId ?? undefined,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true },
-        },
-        department: {
-          select: { id: true, name: true },
-        },
-      },
-    })
-
-    return NextResponse.json({ message: "Member updated successfully", member })
+    return NextResponse.json({ member: updateResult.data })
   } catch (error) {
-    console.error("Error updating member:", error)
+    console.error("Error updating team member:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// DELETE /api/organizations/[id]/members/[memberId] - Remove member from organization
+// DELETE /api/organizations/[id]/members/[memberId] - Remove a team member
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const { id: organizationId, memberId } = await params
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only admins/owners can remove members
-    const hasAccess = await checkAdminAccess(organizationId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const { id: organizationId, memberId } = await params
+
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(organizationId)
+
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
     }
 
-    // Check if member exists
-    const existingMember = await prisma.teamMember.findFirst({
-      where: {
-        id: memberId,
-        organizationId,
-      },
-    })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Only organization owner can remove members" }, { status: 403 })
+    }
 
-    if (!existingMember) {
+    const teamMemberRepository = getTeamMemberRepository()
+    const memberResult = await teamMemberRepository.findById(memberId)
+
+    if (isFailure(memberResult) || !memberResult.data) {
       return NextResponse.json({ error: "Member not found" }, { status: 404 })
     }
 
-    // Prevent removing the organization owner
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-    })
-
-    if (organization?.ownerId === existingMember.userId) {
-      return NextResponse.json(
-        { error: "Cannot remove the organization owner" },
-        { status: 400 }
-      )
+    if (memberResult.data.organizationId !== organizationId) {
+      return NextResponse.json({ error: "Member not found in this organization" }, { status: 404 })
     }
 
-    // Remove member from all project assignments first
-    await prisma.projectMember.deleteMany({
-      where: {
-        teamMemberId: memberId,
-      },
-    })
+    const deleteResult = await teamMemberRepository.delete(memberId)
 
-    // Remove task assignments
-    await prisma.task.updateMany({
-      where: {
-        assignedToId: memberId,
-      },
-      data: {
-        assignedToId: null,
-      },
-    })
-
-    // Delete the team member
-    await prisma.teamMember.delete({
-      where: { id: memberId },
-    })
+    if (isFailure(deleteResult)) {
+      return NextResponse.json({ error: deleteResult.error.message }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Member removed successfully" })
   } catch (error) {
-    console.error("Error removing member:", error)
+    console.error("Error removing team member:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,30 +1,8 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@/generated"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-
-const prisma = new PrismaClient()
-
-// Helper function to check if user has access to the project
-async function checkProjectAccess(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      organization: {
-        include: {
-          teamMembers: {
-            where: { userId },
-          },
-        },
-      },
-    },
-  })
-
-  if (!project) return false
-  if (project.organization.ownerId === userId) return true
-  if (project.organization.teamMembers.length > 0) return true
-  return false
-}
+import { getTaskRepository, getProjectRepository, getOrganizationRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
 // GET /api/tasks - List tasks by projectId
 export async function GET(request: Request) {
@@ -42,29 +20,34 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
-    const hasAccess = await checkProjectAccess(projectId, session.user.id)
-    if (!hasAccess) {
+    // Check project access
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(projectId)
+    
+    if (isFailure(projectResult) || !projectResult.data) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 403 })
     }
 
-    const tasks = await prisma.task.findMany({
-      where: { projectId },
-      include: {
-        assignedTo: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-        _count: {
-          select: { comments: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    // Check organization access
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(projectResult.data.organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 403 })
+    }
 
-    return NextResponse.json({ tasks })
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    const taskRepository = getTaskRepository()
+    const tasksResult = await taskRepository.findByProjectId(projectId)
+
+    if (isFailure(tasksResult)) {
+      return NextResponse.json({ error: tasksResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ tasks: tasksResult.data })
   } catch (error) {
     console.error("Error fetching tasks:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -86,32 +69,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Title and projectId are required" }, { status: 400 })
     }
 
-    const hasAccess = await checkProjectAccess(projectId, session.user.id)
-    if (!hasAccess) {
+    // Check project access
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(projectId)
+    
+    if (isFailure(projectResult) || !projectResult.data) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 403 })
     }
 
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description: description || null,
-        projectId,
-        assignedToId: assignedToId || null,
-        priority: priority || "MEDIUM",
-        dueDate: dueDate ? new Date(dueDate) : null,
-      },
-      include: {
-        assignedTo: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
+    // Check organization access
+    const organizationRepository = getOrganizationRepository()
+    const orgResult = await organizationRepository.findById(projectResult.data.organizationId)
+    
+    if (isFailure(orgResult) || !orgResult.data) {
+      return NextResponse.json({ error: "Organization not found" }, { status: 403 })
+    }
+
+    if (orgResult.data.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+    }
+
+    const taskRepository = getTaskRepository()
+    const createResult = await taskRepository.create({
+      title,
+      description: description || undefined,
+      projectId,
+      assignedToId: assignedToId || undefined,
+      priority: priority || "medium",
+      dueDate: dueDate ? new Date(dueDate) : undefined,
     })
 
-    return NextResponse.json({ message: "Task created successfully", task }, { status: 201 })
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(
+      { message: "Task created successfully", task: createResult.data },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Error creating task:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

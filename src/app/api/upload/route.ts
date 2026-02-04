@@ -1,53 +1,10 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "../../../generated"
-import { getServerSession } from "next-auth"
+import { getServerSession } from "nextauth"
 import { authOptions } from "@/lib/auth"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
-import crypto from "crypto"
+import { getResourceRepository, getProjectRepository } from "@/lib/repositories"
+import { isSuccess, isFailure } from "@/lib/result"
 
-const prisma = new PrismaClient()
-
-// Allowed file types
-const ALLOWED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "text/csv",
-]
-
-// Max file size: 10MB
-const MAX_SIZE = 10 * 1024 * 1024
-
-// Helper function to check if user has access to the project
-async function checkProjectAccess(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      organization: {
-        include: {
-          teamMembers: {
-            where: { userId },
-          },
-        },
-      },
-    },
-  })
-
-  if (!project) return false
-  if (project.organization.ownerId === userId) return true
-  if (project.organization.teamMembers.length > 0) return true
-  return false
-}
-
-// POST /api/upload - Upload a file
+// POST /api/upload - Upload a resource (metadata only, file storage is external)
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -56,95 +13,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const formData = await request.formData()
-    const file = formData.get("file") as File | null
-    const projectId = formData.get("projectId") as string | null
-    const name = formData.get("name") as string | null
+    const { name, url, type, projectId, metadata } = await request.json()
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    if (!name || !url || !projectId) {
+      return NextResponse.json({ error: "name, url, and projectId are required" }, { status: 400 })
     }
 
-    if (!projectId) {
-      return NextResponse.json({ error: "Project ID required" }, { status: 400 })
+    // Verify project exists and user has access
+    const projectRepository = getProjectRepository()
+    const projectResult = await projectRepository.findById(projectId)
+
+    if (isFailure(projectResult) || !projectResult.data) {
+      return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 })
     }
 
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: "File type not allowed" },
-        { status: 400 }
-      )
-    }
-
-    // Validate file size
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { error: "File too large (max 10MB)" },
-        { status: 400 }
-      )
-    }
-
-    // Check project access
-    const hasAccess = await checkProjectAccess(projectId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    // Generate unique filename
-    const ext = path.extname(file.name)
-    const uniqueName = `${crypto.randomUUID()}${ext}`
-    const uploadDir = path.join(process.cwd(), "public", "uploads", projectId)
-
-    // Create directory if it doesn't exist
-    await mkdir(uploadDir, { recursive: true })
-
-    // Convert file to buffer and save
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const filePath = path.join(uploadDir, uniqueName)
-    await writeFile(filePath, buffer)
-
-    // Determine resource type
-    let resourceType = "OTHER"
-    if (file.type.startsWith("image/")) {
-      resourceType = "IMAGE"
-    } else if (file.type.startsWith("video/")) {
-      resourceType = "VIDEO"
-    } else if (file.type.includes("pdf")) {
-      resourceType = "DOCUMENT"
-    } else if (file.type.includes("word") || file.type.includes("excel") || file.type.includes("spreadsheet")) {
-      resourceType = "DOCUMENT"
-    }
-
-    // Create resource in database
-    const resource = await prisma.resource.create({
-      data: {
-        name: name || file.name,
-        type: resourceType,
-        url: `/uploads/${projectId}/${uniqueName}`,
-        projectId,
-        uploadedById: session.user.id,
-      },
-      include: {
-        uploadedBy: {
-          select: { id: true, name: true, email: true },
-        },
-        project: {
-          select: { id: true, name: true },
-        },
-      },
+    const resourceRepository = getResourceRepository()
+    const createResult = await resourceRepository.create({
+      name,
+      url,
+      type: type || "FILE",
+      projectId,
+      uploadedById: session.user.id,
+      metadata: metadata || undefined,
     })
 
-    return NextResponse.json({
-      message: "File uploaded successfully",
-      resource,
-    })
-  } catch (error) {
-    console.error("Error uploading file:", error)
+    if (isFailure(createResult)) {
+      return NextResponse.json({ error: createResult.error.message }, { status: 500 })
+    }
+
     return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 }
+      { message: "Resource uploaded successfully", resource: createResult.data },
+      { status: 201 }
     )
+  } catch (error) {
+    console.error("Error uploading resource:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

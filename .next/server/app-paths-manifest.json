@@ -1,9 +1,6 @@
 {
-  "/projects/page": "app/projects/page.js",
-  "/organizations/page": "app/organizations/page.js",
-  "/organizations/[id]/page": "app/organizations/[id]/page.js",
-  "/projects/[id]/page": "app/projects/[id]/page.js",
-  "/organizations/[id]/settings/page": "app/organizations/[id]/settings/page.js",
+  "/page": "app/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/api/projects/[id]/route": "app/api/projects/[id]/route.js"
+  "/organizations/page": "app/organizations/page.js",
+  "/api/organizations/route": "app/api/organizations/route.js"
 }
