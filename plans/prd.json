@@ -919,7 +919,7 @@
         "id": "client-001",
         "title": "Chat UI Foundation",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Build Next.js chat interface with Anthropic API integration",
         "implementation": "Create src/app/chat/page.tsx with chat UI, integrate Anthropic SDK, implement message history, add streaming responses",
         "dependencies": ["@anthropic-ai/sdk"],

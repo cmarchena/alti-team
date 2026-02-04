@@ -319,3 +319,34 @@
 - Decision: Noted that code was complete but PRD status was out of sync (continuing pattern)
 - Learning: Pattern continues - MCP tools implemented but PRD not updated to reflect completion
 - Note: TypeScript compilation successful with npx tsc --noEmit
+
+## Iteration 21: Chat UI Foundation (client-001)
+- Implemented Chat UI Foundation as the highest priority pending task
+- Installed @anthropic-ai/sdk dependency for Anthropic API integration
+- Created chat API route at /api/chat with:
+  - POST endpoint for sending messages to Claude
+  - Streaming support using ReadableStream for real-time responses
+  - NextAuth session validation for authentication
+  - Error handling for unauthorized access and API failures
+- Created chat page at /chat with:
+  - Full chat interface with message history display
+  - User and assistant message bubbles with avatars
+  - Real-time streaming response animation
+  - Loading states with bouncing dots animation
+  - Quick prompt suggestions for new chats
+  - Auto-scroll to bottom on new messages
+  - Shift+Enter for new lines, Enter to send
+  - Clear chat functionality
+  - Responsive mobile-friendly design using Tailwind CSS
+  - Session redirect to signin on unauthorized access
+- All acceptance criteria met:
+  ✓ Users can send messages and receive responses
+  ✓ Chat history is displayed
+  ✓ Streaming responses work smoothly
+  ✓ Responsive mobile-friendly design
+- Updated prd.json to mark client-001 as "done"
+- Decision: Used ReadableStream for server-sent streaming instead of WebSocket for simplicity
+- Decision: Used @anthropic-ai/sdk streaming API for clean async iteration over response chunks
+- Learning: Streaming responses provide a better user experience by showing partial results as they arrive
+- Learning: NextAuth session validation should be done early in API routes to prevent unauthorized access
+- Note: TypeScript compilation successful with npx tsc --noEmit
