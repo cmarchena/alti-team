@@ -600,3 +600,22 @@
 - Updated prd.json to mark member-mcp-001, member-mcp-002, member-mcp-003 as "done"
 - Note: TypeScript compilation passes with npx tsc --noEmit
 - Pattern continues: MCP tools were already implemented but PRD status was out of sync
+
+## Iteration 55: Search and Notification Tools (search-mcp-001, notification-mcp-001)
+- Discovered that search and notification MCP tools were already fully implemented
+- Verified global_search implementation in src/mcp-server/tools/search.ts:
+  - Searches across projects, tasks, resources, and users
+  - Supports entity type filtering and organization scope
+  - Returns results with counts per entity type
+  - Proper access control - only searches projects user has access to
+- Verified notification tools in src/mcp-server/tools/notification.ts:
+  - get_my_notifications: Gets notifications with unreadOnly and limit filters
+  - mark_notification_read: Marks single notification as read with ownership validation
+  - mark_all_notifications_read: Marks all user notifications as read
+- All tools include:
+  - User authentication validation
+  - Proper error handling with descriptive messages
+  - Ownership verification for notification operations
+- Updated prd.json to mark search-mcp-001 and notification-mcp-001 as "done"
+- Note: TypeScript compilation passes with npx tsc --noEmit
+- Pattern continues: MCP tools were already implemented but PRD status was out of sync

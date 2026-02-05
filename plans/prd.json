@@ -914,7 +914,7 @@
         "id": "search-mcp-001",
         "title": "Global Search Tool",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Search across all entities",
         "tools": [
           {
@@ -940,7 +940,7 @@
         "id": "notification-mcp-001",
         "title": "Notification Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "View and manage notifications",
         "tools": [
           {
