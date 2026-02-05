@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "build:production": "prisma generate && prisma db push && next build",
     "start": "next start",
     "staging": "USE_POSTGRES=true npm run dev",
     "lint": "next lint",
@@ -18,7 +19,9 @@
     "mcp:logs": "pm2 logs alti-team-mcp-server",
     "mcp:logs:err": "pm2 logs alti-team-mcp-server --lines 100 --stderr",
     "mcp:monit": "pm2 monit",
-    "mcp:status": "pm2 status"
+    "mcp:status": "pm2 status",
+    "docker:build": "docker build -t alti-team .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env.production alti-team"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",

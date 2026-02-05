@@ -1357,7 +1357,7 @@
         "id": "deploy-002",
         "title": "Chat Client Deployment",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Deploy chat interface to production",
         "implementation": "Build Next.js app for production, configure environment variables, setup CDN for static assets, configure API routes",
         "dependencies": ["client-001", "test-mcp-002"],
