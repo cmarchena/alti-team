@@ -763,7 +763,7 @@
         "id": "resource-mcp-001",
         "title": "Resource CRUD Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete resources",
         "tools": [
           {

@@ -565,3 +565,20 @@
 - Decision: Hardcoded templates provide consistency between MCP and frontend without database complexity
 - Note: TypeScript compilation passes with npx tsc --noEmit
 - Pattern continues: MCP tools were already implemented but PRD status was out of sync
+
+## Iteration 53: Resource CRUD Tools (resource-mcp-001)
+- Discovered that resource-mcp-001 (Resource CRUD Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/resource.ts with:
+  - create_resource: Creates a new resource (file, link, note) with project/task validation
+  - get_resource: Gets resource details with organization access validation
+  - list_resources: Lists resources with optional projectId, taskId, and type filters
+  - delete_resource: Deletes a resource with proper validation
+- All tools include:
+  - User authentication validation
+  - Organization access validation via validateOrganizationAccess
+  - Task-to-project lookup when only taskId is provided
+  - Type-specific validation (fileUrl for files, content for links/notes)
+  - Proper error handling with descriptive messages
+- Updated prd.json to mark resource-mcp-001 as "done"
+- Note: TypeScript compilation passes with npx tsc --noEmit
+- Pattern continues: MCP tools were already implemented but PRD status was out of sync
