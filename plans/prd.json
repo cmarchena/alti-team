@@ -1129,7 +1129,7 @@
         "id": "advanced-001",
         "title": "Batch Operations Tool",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Enable batch operations through chat",
         "tools": [
           {
