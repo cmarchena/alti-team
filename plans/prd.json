@@ -1067,7 +1067,7 @@
         "id": "client-007",
         "title": "Multi-turn Workflows",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Handle complex multi-step workflows in chat",
         "implementation": "Implement workflow state management, handle form-like interactions, support confirmation dialogs, enable workflow cancellation",
         "dependencies": ["client-002"],

@@ -4,12 +4,20 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import MessageRenderer from '@/components/chat/MessageRenderer'
+import WorkflowConfirmation from '@/components/chat/WorkflowConfirmation'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+}
+
+interface WorkflowState {
+  id: string
+  entityType: string
+  data: Record<string, unknown>
+  isActive: boolean
 }
 
 const initialMessages: Message[] = [
@@ -169,6 +177,8 @@ export default function ChatPage() {
     setIsLoading(true)
     setStreamingContent('')
 
+    const convId = conversationId || `conv-${Date.now()}`
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -179,8 +189,11 @@ export default function ChatPage() {
             content: m.content,
           })),
           stream: true,
+          conversationId: convId,
         }),
       })
+
+      setConversationId(convId)
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -288,6 +301,10 @@ export default function ChatPage() {
     'List my organizations',
   ]
 
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null)
+  const [workflowIsLoading, setWorkflowIsLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+
   const handleQuickPrompt = (prompt: string) => {
     setInputValue(prompt)
     inputRef.current?.focus()
@@ -295,6 +312,88 @@ export default function ChatPage() {
 
   const clearChat = () => {
     setMessages(initialMessages)
+    setWorkflowState(null)
+    setConversationId(null)
+  }
+
+  const handleWorkflowConfirm = async () => {
+    if (!workflowState) return
+
+    setWorkflowIsLoading(true)
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+            { role: 'user', content: 'yes' },
+          ],
+          stream: true,
+          conversationId: workflowState.id,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to confirm workflow')
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response body')
+
+      const decoder = new TextDecoder()
+      let assistantContent = ''
+
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        assistantContent += chunk
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? { ...m, content: assistantContent }
+              : m,
+          ),
+        )
+      }
+
+      setWorkflowState(null)
+      setConversationId(null)
+    } catch (error) {
+      console.error('Workflow confirmation error:', error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content:
+          'I encountered an error while creating the item. Would you like to try again?',
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+      setWorkflowState(null)
+    } finally {
+      setWorkflowIsLoading(false)
+    }
+  }
+
+  const handleWorkflowCancel = () => {
+    setWorkflowState(null)
+    setConversationId(null)
+  }
+
+  const handleWorkflowBack = () => {
+    setWorkflowState(null)
+    setConversationId(null)
   }
 
   return (
@@ -476,6 +575,17 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {workflowState?.isActive && (
+            <WorkflowConfirmation
+              entityType={workflowState.entityType}
+              data={workflowState.data}
+              onConfirm={handleWorkflowConfirm}
+              onCancel={handleWorkflowCancel}
+              onBack={handleWorkflowBack}
+              isLoading={workflowIsLoading}
+            />
           )}
 
           <div ref={messagesEndRef} />
