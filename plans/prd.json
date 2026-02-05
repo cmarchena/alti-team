@@ -1278,7 +1278,7 @@
         "id": "test-mcp-002",
         "title": "Chat Client E2E Testing",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "E2E tests for chat workflows",
         "implementation": "Create tests/e2e/chat/ with Playwright tests, test common chat workflows, test tool calling flows, test error states",
         "dependencies": ["client-002", "testing-002"],
