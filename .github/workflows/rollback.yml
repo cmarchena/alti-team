@@ -1,0 +1,29 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'production'
+      deployment_id:
+        description: 'Deployment ID to rollback to'
+        required: false
+
+jobs:
+  rollback-vercel:
+    name: Rollback Vercel Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rollback Vercel Deployment
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: ${{ github.event.inputs.deployment_id && format('--redeploy={0}', github.event.inputs.deployment_id) || '--prod=true' }}
+          working-directory: ./

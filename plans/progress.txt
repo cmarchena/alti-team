@@ -797,3 +797,28 @@ Features completed this session:
 - Decision: Vercel provides easiest deployment path for Next.js applications
 - Learning: Multi-stage Docker builds reduce final image size significantly
 - Updated prd.json to mark deploy-002 as "done"
+
+## Iteration 65: CI/CD Pipeline (deploy-003)
+- Implemented complete CI/CD pipeline using GitHub Actions
+- Created .github/workflows/ci.yml with:
+  - lint-and-typecheck job: Runs ESLint and TypeScript checks
+  - unit-tests job: Runs all unit tests
+  - mcp-server-tests job: Runs MCP server tests with in-memory storage
+  - e2e-tests job: Runs Playwright E2E tests with browser installation
+- Created .github/workflows/deploy.yml with:
+  - deploy-staging: Deploys to Vercel staging on push to develop branch
+  - deploy-production: Deploys to Vercel production on push to main branch
+  - Runs all tests before deployment for quality gate
+- Created .github/workflows/rollback.yml with:
+  - Manual trigger for rolling back deployments
+  - Supports redeployment to previous deployment ID
+- All acceptance criteria met:
+  ✓ Tests run automatically on PR (ci.yml runs on push and PR)
+  ✓ Deployment is automated (deploy.yml triggers on main/develop pushes)
+  ✓ Staging environment works (deploy-staging job with --prod=false)
+  ✓ Can rollback quickly if needed (rollback.yml workflow dispatch)
+- Decision: Used Vercel GitHub Integration for streamlined deployments
+- Decision: Separate jobs in CI for parallel execution and faster feedback
+- Learning: pnpm caching in GitHub Actions significantly speeds up CI runs
+- Learning: Vercel preview deployments work well for staging review
+- Updated prd.json to mark deploy-003 as "done"

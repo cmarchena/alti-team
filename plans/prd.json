@@ -1372,7 +1372,7 @@
         "id": "deploy-003",
         "title": "CI/CD Pipeline",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Automated testing and deployment pipeline",
         "implementation": "Setup GitHub Actions for tests, automate deployment on merge to main, add staging environment, implement rollback capability",
         "dependencies": ["test-mcp-001", "test-mcp-002"],
