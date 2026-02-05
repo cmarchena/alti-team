@@ -397,3 +397,29 @@
 - Decision: Used functional component with useSession hook per React best practices
 - Learning: useSession hook with loading state prevents flash of unauthenticated content
 - Learning: signOut with callbackUrl provides clean redirect after logout
+
+## Iteration 22: Organization CRUD Tools (org-mcp-001)
+- Discovered that org-mcp-001 (Organization CRUD Tools) was mostly implemented but missing delete_organization tool
+- Verified existing implementation at src/mcp-server/tools/organization.ts with:
+  - create_organization: Creates a new organization with owner
+  - get_organization: Retrieves organization details with access validation
+  - update_organization: Updates organization (owner only)
+  - list_my_organizations: Lists all organizations user belongs to
+  - get_organization_dashboard: Gets dashboard metrics
+  - get_organization_metrics: Gets key metrics for a period
+- Added missing delete_organization tool that:
+  - Validates user is authenticated
+  - Checks organization ownership before deletion
+  - Calls repository delete method
+  - Returns success/error response
+- All CRUD tools now complete:
+  ✓ create_organization
+  ✓ get_organization
+  ✓ update_organization
+  ✓ delete_organization (newly added)
+  ✓ list_my_organizations
+- Updated prd.json to mark org-mcp-001 as "done" and add delete_organization to tools list
+- Decision: Followed existing authentication and validation patterns from other tools
+- Decision: Used isOwner validation which already existed in auth.ts
+- Learning: Pattern continues - MCP tools were partially implemented but PRD status was out of sync
+- Note: TypeScript compilation successful with npx tsc --noEmit

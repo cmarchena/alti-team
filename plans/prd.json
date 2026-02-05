@@ -120,7 +120,7 @@
         "id": "org-mcp-001",
         "title": "Organization CRUD Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete organizations via MCP",
         "tools": [
           {
@@ -148,6 +148,13 @@
             }
           },
           {
+            "name": "delete_organization",
+            "description": "Delete an organization (owner only)",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
             "name": "list_my_organizations",
             "description": "List all organizations the user belongs to",
             "parameters": {}
@@ -159,7 +166,8 @@
           "Create an organization called Acme Corp",
           "Show me my organizations",
           "What's the description of organization xyz-123?",
-          "Rename organization xyz-123 to Acme Industries"
+          "Rename organization xyz-123 to Acme Industries",
+          "Delete organization xyz-123"
         ]
       },
       "org-mcp-002": {

@@ -1,5 +1,9 @@
+import { isSuccess, isFailure } from '../../lib/result'
 import { MCPServerContext, registerTool } from '../index.js'
-import { validateOrganizationAccess, validateOrganizationOwnership } from '../auth.js'
+import {
+  validateOrganizationAccess,
+  validateOrganizationOwnership,
+} from '../auth.js'
 
 // Create Organization Tool
 const createOrganizationTool = {
@@ -27,24 +31,28 @@ const createOrganizationTool = {
       ownerId: context.userId,
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const organization = result.value
+    const organization = result.data
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            id: organization.id,
-            name: organization.name,
-            description: organization.description,
-            createdAt: organization.createdAt,
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              id: organization.id,
+              name: organization.name,
+              description: organization.description,
+              createdAt: organization.createdAt,
+            },
+            null,
+            2,
+          ),
         },
       ],
     }
@@ -71,24 +79,35 @@ const getOrganizationTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, args.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(
+      context.userId,
+      args.organizationId,
+      context,
+    )
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    const result = await context.repositories.organizations.findById(args.organizationId)
+    const result = await context.repositories.organizations.findById(
+      args.organizationId,
+    )
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const organization = result.value
+    const organization = result.data
     if (!organization) {
       return {
         content: [{ type: 'text', text: 'Organization not found' }],
@@ -100,14 +119,18 @@ const getOrganizationTool = {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            id: organization.id,
-            name: organization.name,
-            description: organization.description,
-            ownerId: organization.ownerId,
-            createdAt: organization.createdAt,
-            updatedAt: organization.updatedAt,
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              id: organization.id,
+              name: organization.name,
+              description: organization.description,
+              ownerId: organization.ownerId,
+              createdAt: organization.createdAt,
+              updatedAt: organization.updatedAt,
+            },
+            null,
+            2,
+          ),
         },
       ],
     }
@@ -123,7 +146,10 @@ const updateOrganizationTool = {
     properties: {
       organizationId: { type: 'string', description: 'Organization ID' },
       name: { type: 'string', description: 'New organization name' },
-      description: { type: 'string', description: 'New organization description' },
+      description: {
+        type: 'string',
+        description: 'New organization description',
+      },
     },
     required: ['organizationId'],
   },
@@ -136,21 +162,34 @@ const updateOrganizationTool = {
     }
 
     // Check if user owns the organization
-    const isOwner = await validateOrganizationOwnership(context.userId, args.organizationId, context)
+    const isOwner = await validateOrganizationOwnership(
+      context.userId,
+      args.organizationId,
+      context,
+    )
     if (!isOwner) {
       return {
-        content: [{ type: 'text', text: 'Access denied. Only organization owners can update organization information.' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. Only organization owners can update organization information.',
+          },
+        ],
         isError: true,
       }
     }
 
     const updateData: any = {}
     if (args.name !== undefined) updateData.name = args.name
-    if (args.description !== undefined) updateData.description = args.description
+    if (args.description !== undefined)
+      updateData.description = args.description
 
-    const result = await context.repositories.organizations.update(args.organizationId, updateData)
+    const result = await context.repositories.organizations.update(
+      args.organizationId,
+      updateData,
+    )
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
@@ -186,28 +225,32 @@ const listMyOrganizationsTool = {
     }
 
     // Find organizations where user is owner
-    const ownedOrgsResult = await context.repositories.organizations.findByOwnerId(context.userId)
-    
+    const ownedOrgsResult =
+      await context.repositories.organizations.findByOwnerId(context.userId)
+
     // Find organizations where user is a member
-    const memberOrgsResult = await context.repositories.teamMembers.findByUserId(context.userId)
-    
+    const memberOrgsResult =
+      await context.repositories.teamMembers.findByUserId(context.userId)
+
     let organizations: any[] = []
-    
-    if (ownedOrgsResult.isOk()) {
-      organizations = ownedOrgsResult.value.map(org => ({
+
+    if (isSuccess(ownedOrgsResult)) {
+      organizations = ownedOrgsResult.data.map((org) => ({
         ...org,
-        role: 'owner'
+        role: 'owner',
       }))
     }
-    
-    if (memberOrgsResult.isOk()) {
-      const memberOrgs = memberOrgsResult.value
+
+    if (isSuccess(memberOrgsResult)) {
+      const memberOrgs = memberOrgsResult.data
       for (const membership of memberOrgs) {
-        const orgResult = await context.repositories.organizations.findById(membership.organizationId)
-        if (orgResult.isOk() && orgResult.value) {
+        const orgResult = await context.repositories.organizations.findById(
+          membership.organizationId,
+        )
+        if (isSuccess(orgResult) && orgResult.data) {
           organizations.push({
-            ...orgResult.value,
-            role: membership.role
+            ...orgResult.data,
+            role: membership.role,
           })
         }
       }
@@ -217,12 +260,16 @@ const listMyOrganizationsTool = {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(organizations.map(org => ({
-            id: org.id,
-            name: org.name,
-            description: org.description,
-            role: org.role,
-          })), null, 2),
+          text: JSON.stringify(
+            organizations.map((org) => ({
+              id: org.id,
+              name: org.name,
+              description: org.description,
+              role: org.role,
+            })),
+            null,
+            2,
+          ),
         },
       ],
     }
@@ -249,58 +296,85 @@ const getOrganizationDashboardTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, args.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(
+      context.userId,
+      args.organizationId,
+      context,
+    )
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
     // Get basic organization info
-    const orgResult = await context.repositories.organizations.findById(args.organizationId)
-    if (orgResult.isErr() || !orgResult.value) {
+    const orgResult = await context.repositories.organizations.findById(
+      args.organizationId,
+    )
+    if (isFailure(orgResult) || !orgResult.data) {
       return {
         content: [{ type: 'text', text: 'Organization not found' }],
         isError: true,
       }
     }
-    const organization = orgResult.value
+    const organization = orgResult.data
 
     // Get projects count and status distribution
-    const projectsResult = await context.repositories.projects.findByOrganizationId(args.organizationId)
-    const projects = projectsResult.isOk() ? projectsResult.value : []
-    
+    const projectsResult =
+      await context.repositories.projects.findByOrganizationId(
+        args.organizationId,
+      )
+    const projects = isSuccess(projectsResult) ? projectsResult.data : []
+
     const projectStatusCounts: Record<string, number> = {}
-    projects.forEach(project => {
-      projectStatusCounts[project.status] = (projectStatusCounts[project.status] || 0) + 1
+    projects.forEach((project) => {
+      projectStatusCounts[project.status] =
+        (projectStatusCounts[project.status] || 0) + 1
     })
 
     // Get members count
-    const membersResult = await context.repositories.teamMembers.findByOrganizationId(args.organizationId)
-    const members = membersResult.isOk() ? membersResult.value : []
-    
+    const membersResult =
+      await context.repositories.teamMembers.findByOrganizationId(
+        args.organizationId,
+      )
+    const members = isSuccess(membersResult) ? membersResult.data : []
+
     // Get departments count
-    const departmentsResult = await context.repositories.departments.findByOrganizationId(args.organizationId)
-    const departments = departmentsResult.isOk() ? departmentsResult.value : []
+    const departmentsResult =
+      await context.repositories.departments.findByOrganizationId(
+        args.organizationId,
+      )
+    const departments = isSuccess(departmentsResult)
+      ? departmentsResult.data
+      : []
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            organization: {
-              id: organization.id,
-              name: organization.name,
-              description: organization.description,
+          text: JSON.stringify(
+            {
+              organization: {
+                id: organization.id,
+                name: organization.name,
+                description: organization.description,
+              },
+              metrics: {
+                projects: projects.length,
+                members: members.length,
+                departments: departments.length,
+                projectStatus: projectStatusCounts,
+              },
             },
-            metrics: {
-              projects: projects.length,
-              members: members.length,
-              departments: departments.length,
-              projectStatus: projectStatusCounts,
-            },
-          }, null, 2),
+            null,
+            2,
+          ),
         },
       ],
     }
@@ -315,7 +389,11 @@ const getOrganizationMetricsTool = {
     type: 'object',
     properties: {
       organizationId: { type: 'string', description: 'Organization ID' },
-      period: { type: 'string', description: 'Time period (week, month, quarter)', enum: ['week', 'month', 'quarter'] },
+      period: {
+        type: 'string',
+        description: 'Time period (week, month, quarter)',
+        enum: ['week', 'month', 'quarter'],
+      },
     },
     required: ['organizationId'],
   },
@@ -328,10 +406,19 @@ const getOrganizationMetricsTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, args.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(
+      context.userId,
+      args.organizationId,
+      context,
+    )
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
@@ -339,7 +426,7 @@ const getOrganizationMetricsTool = {
     // Calculate date range based on period
     const now = new Date()
     let startDate = new Date()
-    
+
     switch (args.period) {
       case 'week':
         startDate.setDate(now.getDate() - 7)
@@ -355,33 +442,114 @@ const getOrganizationMetricsTool = {
     }
 
     // Get projects created in the period
-    const projectsResult = await context.repositories.projects.findByOrganizationId(args.organizationId)
-    const projects = projectsResult.isOk() ? projectsResult.value : []
-    const recentProjects = projects.filter(p => new Date(p.createdAt) >= startDate)
+    const projectsResult =
+      await context.repositories.projects.findByOrganizationId(
+        args.organizationId,
+      )
+    const projects = isSuccess(projectsResult) ? projectsResult.data : []
+    const recentProjects = projects.filter(
+      (p) => new Date(p.createdAt) >= startDate,
+    )
 
     // Get tasks created in the period
     const allTasksResult = await Promise.all(
-      projects.map(p => context.repositories.tasks.findByProjectId(p.id))
+      projects.map((p) => context.repositories.tasks.findByProjectId(p.id)),
     )
-    const allTasks = allTasksResult.filter(r => r.isOk()).flatMap(r => r.value)
-    const recentTasks = allTasks.filter(t => new Date(t.createdAt) >= startDate)
-    const completedTasks = recentTasks.filter(t => t.status === 'done')
+    const allTasks = allTasksResult
+      .filter((r) => isSuccess(r))
+      .flatMap((r) => r.data)
+    const recentTasks = allTasks.filter(
+      (t) => new Date(t.createdAt) >= startDate,
+    )
+    const completedTasks = recentTasks.filter((t) => t.status === 'done')
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            period: args.period || 'month',
-            startDate: startDate.toISOString(),
-            endDate: now.toISOString(),
-            metrics: {
-              newProjects: recentProjects.length,
-              newTasks: recentTasks.length,
-              completedTasks: completedTasks.length,
-              taskCompletionRate: projects.length > 0 ? (completedTasks.length / recentTasks.length * 100).toFixed(2) + '%' : '0%',
+          text: JSON.stringify(
+            {
+              period: args.period || 'month',
+              startDate: startDate.toISOString(),
+              endDate: now.toISOString(),
+              metrics: {
+                newProjects: recentProjects.length,
+                newTasks: recentTasks.length,
+                completedTasks: completedTasks.length,
+                taskCompletionRate:
+                  projects.length > 0
+                    ? (
+                        (completedTasks.length / recentTasks.length) *
+                        100
+                      ).toFixed(2) + '%'
+                    : '0%',
+              },
             },
-          }, null, 2),
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  },
+}
+
+// Delete Organization Tool
+const deleteOrganizationTool = {
+  name: 'delete_organization',
+  description: 'Delete an organization (owner only)',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      organizationId: {
+        type: 'string',
+        description: 'Organization ID to delete',
+      },
+    },
+    required: ['organizationId'],
+  },
+  handler: async (args: any, context: MCPServerContext) => {
+    if (!context.userId) {
+      return {
+        content: [{ type: 'text', text: 'Authentication required' }],
+        isError: true,
+      }
+    }
+
+    // Check if user owns the organization
+    const isOwner = await validateOrganizationOwnership(
+      context.userId,
+      args.organizationId,
+      context,
+    )
+    if (!isOwner) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. Only organization owners can delete organizations.',
+          },
+        ],
+        isError: true,
+      }
+    }
+
+    const result = await context.repositories.organizations.delete(
+      args.organizationId,
+    )
+
+    if (isFailure(result)) {
+      return {
+        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        isError: true,
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Organization deleted successfully',
         },
       ],
     }
@@ -392,6 +560,7 @@ const getOrganizationMetricsTool = {
 registerTool(createOrganizationTool)
 registerTool(getOrganizationTool)
 registerTool(updateOrganizationTool)
+registerTool(deleteOrganizationTool)
 registerTool(listMyOrganizationsTool)
 registerTool(getOrganizationDashboardTool)
 registerTool(getOrganizationMetricsTool)
