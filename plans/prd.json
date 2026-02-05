@@ -271,7 +271,7 @@
         "id": "project-mcp-002",
         "title": "Project Template Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Create and use project templates",
         "tools": [
           {

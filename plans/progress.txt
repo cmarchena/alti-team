@@ -548,3 +548,20 @@
 - Learning: E2E tests complement unit tests by validating user-facing functionality
 - Learning: Testing authentication flows requires proper test user setup
 - Updated prd.json to mark test-mcp-002 as "done"
+
+## Iteration 52: Project Template Tools (project-mcp-002)
+- Discovered that project-mcp-002 (Project Template Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/project.ts with:
+  - create_project_from_template: Creates a project from a template with customizations (name, description, status, dates)
+  - list_project_templates: Lists available project templates (Software Development, Marketing Campaign, Product Launch)
+- Both tools include:
+  - User authentication validation
+  - Organization access validation via validateOrganizationAccess
+  - Proper error handling with descriptive messages
+  - Structured JSON responses
+- Templates are defined as hardcoded constants (consistent with frontend templates at src/app/templates/page.tsx)
+- No database model for ProjectTemplate exists - this is appropriate for the current use case
+- Updated prd.json to mark project-mcp-002 as "done"
+- Decision: Hardcoded templates provide consistency between MCP and frontend without database complexity
+- Note: TypeScript compilation passes with npx tsc --noEmit
+- Pattern continues: MCP tools were already implemented but PRD status was out of sync
