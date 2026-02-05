@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut, useSession } from 'next-auth/react'
 
 interface Message {
   id: string
@@ -22,12 +23,19 @@ const initialMessages: Message[] = [
 
 export default function ChatPage() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
 
   useEffect(() => {
     scrollToBottom()
@@ -182,12 +190,41 @@ export default function ChatPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={clearChat}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            Clear Chat
-          </button>
+          <div className="flex items-center space-x-4">
+            {session?.user && (
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <span className="text-indigo-600 font-medium">
+                    {session.user.name?.[0]?.toUpperCase() ||
+                      session.user.email?.[0]?.toUpperCase() ||
+                      'U'}
+                  </span>
+                </div>
+                <span className="hidden sm:inline">
+                  {session.user.name || session.user.email}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center space-x-1"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
         </div>
       </header>
 

@@ -949,7 +949,7 @@
         "id": "client-003",
         "title": "Authentication Integration",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Integrate NextAuth.js with chat interface",
         "implementation": "Use existing NextAuth setup, pass user session to MCP server, protect chat routes, add login/logout in chat UI",
         "dependencies": ["client-001", "user-002"],
