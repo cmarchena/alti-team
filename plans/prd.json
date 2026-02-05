@@ -1193,7 +1193,7 @@
         "id": "advanced-003",
         "title": "Report Generation Tool",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Generate various reports through chat",
         "tools": [
           {
