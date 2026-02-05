@@ -304,7 +304,7 @@
         "id": "project-mcp-003",
         "title": "Project Analytics Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Get project analytics and insights",
         "tools": [
           {
@@ -657,7 +657,7 @@
         "id": "process-mcp-001",
         "title": "Process CRUD Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete business processes",
         "tools": [
           {
@@ -697,7 +697,7 @@
         "id": "process-mcp-002",
         "title": "Process Execution Tools",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Execute and track processes",
         "tools": [
           {
@@ -737,7 +737,7 @@
         "id": "process-mcp-003",
         "title": "Process Analytics Tools",
         "priority": "low",
-        "status": "todo",
+        "status": "done",
         "description": "Get process performance analytics",
         "tools": [
           {
