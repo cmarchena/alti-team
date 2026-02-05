@@ -13,10 +13,13 @@ const customJestConfig = {
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/__tests__/**/*.test.tsx',
+    '**/tests/**/*.test.ts',
   ],
+  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/tests/e2e/'],
   collectCoverageFrom: [
     'src/app/api/**/*.ts',
     'src/lib/**/*.ts',
+    'src/mcp-server/**/*.ts',
     '!src/**/*.d.ts',
   ],
 }

@@ -1263,7 +1263,7 @@
         "id": "test-mcp-001",
         "title": "MCP Server Testing",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Test MCP server tools and integration",
         "implementation": "Create tests/mcp-server/ with Jest tests for each tool, mock repository layer, test error handling, test authentication",
         "dependencies": ["server-001", "testing-001"],
