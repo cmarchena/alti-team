@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
+import MessageRenderer from '@/components/chat/MessageRenderer'
 
 interface Message {
   id: string
@@ -287,13 +288,19 @@ export default function ChatPage() {
                       : 'bg-white border border-gray-200 shadow-sm'
                   }`}
                 >
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                    {message.content || (
-                      <span className="text-gray-400 italic">Thinking...</span>
-                    )}
-                  </div>
+                  {message.role === 'assistant' ? (
+                    <MessageRenderer content={message.content} />
+                  ) : (
+                    <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                      {message.content || (
+                        <span className="text-gray-400 italic">
+                          Thinking...
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div
-                    className={`text-xs mt-1 ${
+                    className={`text-xs mt-2 ${
                       message.role === 'user'
                         ? 'text-indigo-200'
                         : 'text-gray-400'
