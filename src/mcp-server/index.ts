@@ -1,8 +1,14 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema, Tool } from '@modelcontextprotocol/sdk/types.js'
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  Tool,
+} from '@modelcontextprotocol/sdk/types.js'
 import { getRepositories } from '../lib/repositories/index.js'
 import { createAuthMiddleware, validateOrganizationAccess } from './auth.js'
+import { logger } from './logger.js'
+import { createHealthCheckHandler, updateServerStartTime } from './health.js'
 import './tools/user.js'
 import './tools/project.js'
 import './tools/organization.js'
@@ -22,10 +28,21 @@ export interface MCPServerContext {
 }
 
 // Tool registry
-const toolRegistry = new Map<string, { tool: Tool, handler: (args: any, context: MCPServerContext) => Promise<any> }>()
+const toolRegistry = new Map<
+  string,
+  {
+    tool: Tool
+    handler: (args: any, context: MCPServerContext) => Promise<any>
+  }
+>()
 
 // Register a tool
-export function registerTool(toolDef: { name: string, description: string, inputSchema: any, handler: (args: any, context: MCPServerContext) => Promise<any> }) {
+export function registerTool(toolDef: {
+  name: string
+  description: string
+  inputSchema: any
+  handler: (args: any, context: MCPServerContext) => Promise<any>
+}) {
   const tool: Tool = {
     name: toolDef.name,
     description: toolDef.description,
@@ -57,7 +74,7 @@ function createServer() {
       capabilities: {
         tools: {},
       },
-    }
+    },
   )
 
   const authMiddleware = createAuthMiddleware()
@@ -94,7 +111,12 @@ function createServer() {
     } catch (error) {
       console.error(`Error executing tool ${name}:`, error)
       return {
-        content: [{ type: 'text', text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
         isError: true,
       }
     }
@@ -105,15 +127,28 @@ function createServer() {
 
 // Start the server
 async function startServer() {
+  updateServerStartTime()
+
   const server = createServer()
   const transport = new StdioServerTransport()
 
   await server.connect(transport)
-  console.error('AltiTeam MCP Server started')
+  logger.info('AltiTeam MCP Server started')
+
+  const healthCheckHandler = createHealthCheckHandler()
+
+  const gracefulShutdown = async (signal: string) => {
+    logger.info(`Received ${signal}, shutting down gracefully`)
+    await server.close()
+    process.exit(0)
+  }
+
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
 }
 
 // Start the server
 startServer().catch((error) => {
-  console.error('Failed to start MCP server:', error)
+  logger.error('Failed to start MCP server', { error: String(error) })
   process.exit(1)
 })

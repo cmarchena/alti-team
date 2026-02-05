@@ -11,7 +11,14 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:report": "playwright show-report",
-    "mcp:server": "node --loader ts-node/esm src/mcp-server/index.ts"
+    "mcp:server": "node --loader ts-node/esm src/mcp-server/index.ts",
+    "mcp:start": "pm2 start ecosystem.config.js --no-daemon",
+    "mcp:stop": "pm2 stop alti-team-mcp-server",
+    "mcp:restart": "pm2 restart alti-team-mcp-server",
+    "mcp:logs": "pm2 logs alti-team-mcp-server",
+    "mcp:logs:err": "pm2 logs alti-team-mcp-server --lines 100 --stderr",
+    "mcp:monit": "pm2 monit",
+    "mcp:status": "pm2 status"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
@@ -43,6 +50,7 @@
     "eslint-config-next": "14.2.15",
     "jest": "^29.5.0",
     "jest-extended": "^4.0.2",
+    "pm2": "^6.0.14",
     "postcss": "^8.5.6",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.19",

@@ -706,3 +706,43 @@ Features completed this session:
 - client-004 (Rich Message Rendering)
 - client-005 (Conversation Context Management)
 - client-006 (Quick Actions & Slash Commands)
+
+## Iteration 62: MCP Server Deployment (deploy-001)
+- Implemented MCP Server Deployment with PM2 process management
+- Created ecosystem.config.js with PM2 configuration:
+  - Process manager setup for alti-team-mcp-server
+  - Development and production environment configurations
+  - Log file management (combined.log, out.log, error.log)
+  - Auto-restart on failure with max_restarts and min_uptime settings
+  - Memory limit of 500M per instance
+- Created structured logger at src/mcp-server/logger.ts:
+  - Log levels (debug, info, warn, error)
+  - Timestamped output format
+  - Environment-based log level configuration via LOG_LEVEL
+- Created health check system at src/mcp-server/health.ts:
+  - performHealthCheck() function for system health verification
+  - Checks database connectivity and repository availability
+  - Returns status, timestamp, version, uptime, and individual check results
+  - createHealthCheckHandler() for integrating with MCP tool system
+- Updated MCP server entry point (src/mcp-server/index.ts):
+  - Replaced console.error with structured logger
+  - Added graceful shutdown handlers for SIGINT/SIGTERM
+  - Integrated health check start time tracking
+- Created .env.production template with all required production variables
+- Added npm scripts for PM2 management:
+  - mcp:start, mcp:stop, mcp:restart
+  - mcp:logs, mcp:logs:err for log viewing
+  - mcp:status for process monitoring
+  - mcp:monit for real-time PM2 dashboard
+- Installed PM2 as dev dependency
+- All acceptance criteria met:
+  ✓ Server runs reliably in production (PM2 process management)
+  ✓ Logs are centralized (logs/ directory with structured log files)
+  ✓ Health checks are in place (health.ts with database/repository checks)
+  ✓ Auto-restart on failure (autorestart, max_restarts, min_uptime settings)
+- TypeScript compilation passes with npx tsc --noEmit
+- Decision: Used PM2 for production process management due to its robustness and ecosystem support
+- Decision: Created separate .env.production template to avoid modifying actual .env
+- Learning: Structured logging with timestamps is essential for production debugging
+- Learning: Graceful shutdown handling prevents data corruption and connection leaks
+- Updated prd.json to mark deploy-001 as "done"
