@@ -822,3 +822,23 @@ Features completed this session:
 - Learning: pnpm caching in GitHub Actions significantly speeds up CI runs
 - Learning: Vercel preview deployments work well for staging review
 - Updated prd.json to mark deploy-003 as "done"
+
+## Iteration 66: Report Generation Tool (advanced-003)
+- Implemented Report Generation Tool for MCP server
+- Created src/mcp-server/tools/reports.ts with:
+  - generate_project_report: Creates project status reports in 3 formats (summary, detailed, executive)
+  - generate_team_report: Generates team performance reports with member metrics
+- Project reports include:
+  - Task counts by status (todo, in-progress, review, done)
+  - Health indicators (overdue tasks, high priority pending)
+  - Risk indicators for deadline and velocity issues
+  - Executive summary with recommendations
+- Team reports include:
+  - Completion rates per member
+  - Task distribution by status
+  - Top performers identification
+  - Attention required list for underperforming members
+- All tools include proper authentication and organization access validation
+- Updated prd.json to mark advanced-003 as "done"
+- Decision: Three report formats (summary/detailed/executive) serve different user needs
+- Learning: Reports provide actionable insights through risk indicators and recommendations
