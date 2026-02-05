@@ -552,11 +552,11 @@
       }
     },
     "departmentManagement": {
-      "dept-mcp-001": {
+"dept-mcp-001": {
         "id": "dept-mcp-001",
         "title": "Department CRUD Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete departments",
         "tools": [
           {
@@ -568,6 +568,57 @@
               "parentDepartmentId": "string (optional)",
               "description": "string (optional)"
             }
+          },
+          {
+            "name": "get_department",
+            "description": "Get department details",
+            "parameters": {
+              "departmentId": "string"
+            }
+          },
+          {
+            "name": "list_departments",
+            "description": "List departments in organization",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "get_department_hierarchy",
+            "description": "Get organizational hierarchy",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "update_department",
+            "description": "Update department information",
+            "parameters": {
+              "departmentId": "string",
+              "name": "string (optional)",
+              "description": "string (optional)",
+              "parentDepartmentId": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_department",
+            "description": "Delete a department",
+            "parameters": {
+              "departmentId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/department.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a department called Sales",
+          "Show me the org chart",
+          "What departments are under Engineering?",
+          "Create a sub-department called Frontend under Engineering",
+          "Update the Sales department description",
+          "Delete the old department"
+        ]
+      }
           },
           {
             "name": "get_department",

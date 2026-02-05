@@ -474,3 +474,26 @@
 - Decision: Created dedicated Team model to separate teams from departments
 - Learning: Repository pattern with dependency injection enables clean separation between data access and business logic
 
+
+## Iteration 48: Department CRUD Tools (dept-mcp-001)
+- Discovered that dept-mcp-001 was partially implemented but missing update_department and delete_department tools
+- Added update_department tool with:
+  - Updates name, description, and parent department
+  - Validates parent department exists and is in same organization
+  - Validates user has organization access
+- Added delete_department tool with:
+  - Deletes a department
+  - Validates user has organization access
+  - Prevents deletion if department has child departments
+  - Prevents deletion if department has members
+- All department CRUD tools now complete:
+  ✓ create_department
+  ✓ get_department
+  ✓ list_departments
+  ✓ get_department_hierarchy
+  ✓ update_department (newly added)
+  ✓ delete_department (newly added)
+- Updated prd.json to mark dept-mcp-001 as "done" with all tools documented
+- Decision: Added validation to prevent deletion with children/members to maintain data integrity
+- Note: TypeScript compilation successful with npx tsc --noEmit
+- Pattern continues: MCP tools were partially implemented but PRD status was out of sync
