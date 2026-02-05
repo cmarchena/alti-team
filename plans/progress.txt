@@ -675,3 +675,14 @@
 - TypeScript compilation passes with npx tsc --noEmit
 - Decision: 50 message limit per conversation prevents context window overflow
 - Learning: Conversation infrastructure enables persistent chat across sessions
+
+## Iteration 60: Slash Commands (client-006)
+- Implemented slash commands for chat interface
+- Added slash command menu that appears when user types '/'
+- 10 commands available: /help, /new, /clear, /tasks, /projects, /organizations, /create-task, /create-project, /search, /invite
+- Keyboard navigation: Arrow Up/Down to select, Enter to execute, Escape to close
+- Commands expand to full prompts or perform actions (clear, new conversation)
+- Filtered suggestions as user types more characters
+- TypeScript compilation passes with npx tsc --noEmit
+- Decision: Commands expand to descriptive prompts for discoverability
+- Learning: Slash commands improve power user efficiency and discoverability

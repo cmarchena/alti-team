@@ -1052,7 +1052,7 @@
         "id": "client-006",
         "title": "Quick Actions & Suggestions",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Provide suggested prompts and quick actions",
         "implementation": "Add prompt suggestions based on context, create quick action buttons for common tasks, implement slash commands for power users",
         "dependencies": ["client-002"],

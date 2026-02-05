@@ -29,8 +29,116 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
+  const [showSlashMenu, setShowSlashMenu] = useState(false)
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  interface SlashCommand {
+    command: string
+    description: string
+    action: string
+  }
+
+  const slashCommands: SlashCommand[] = [
+    {
+      command: '/help',
+      description: 'Show available commands',
+      action: 'help',
+    },
+    { command: '/new', description: 'Start a new conversation', action: 'new' },
+    {
+      command: '/clear',
+      description: 'Clear current conversation',
+      action: 'clear',
+    },
+    { command: '/tasks', description: 'Show my tasks', action: 'tasks' },
+    {
+      command: '/projects',
+      description: 'Show my projects',
+      action: 'projects',
+    },
+    {
+      command: '/organizations',
+      description: 'Show my organizations',
+      action: 'organizations',
+    },
+    {
+      command: '/create-task',
+      description: 'Create a new task',
+      action: 'create-task',
+    },
+    {
+      command: '/create-project',
+      description: 'Create a new project',
+      action: 'create-project',
+    },
+    {
+      command: '/search',
+      description: 'Search across all items',
+      action: 'search',
+    },
+    {
+      command: '/invite',
+      description: 'Invite a team member',
+      action: 'invite',
+    },
+  ]
+
+  const filteredSlashCommands = inputValue.startsWith('/')
+    ? slashCommands.filter(
+        (cmd) =>
+          cmd.command.toLowerCase().includes(inputValue.toLowerCase()) ||
+          cmd.description.toLowerCase().includes(inputValue.toLowerCase()),
+      )
+    : slashCommands
+
+  const handleInputChange = (value: string) => {
+    setInputValue(value)
+    if (value.startsWith('/')) {
+      setShowSlashMenu(true)
+      setSelectedCommandIndex(0)
+    } else {
+      setShowSlashMenu(false)
+    }
+  }
+
+  const selectCommand = (cmd: SlashCommand) => {
+    switch (cmd.action) {
+      case 'help':
+        setInputValue('/help')
+        break
+      case 'new':
+        setMessages(initialMessages)
+        break
+      case 'clear':
+        setMessages(initialMessages)
+        break
+      case 'tasks':
+        setInputValue('Show me my tasks')
+        break
+      case 'projects':
+        setInputValue('Show me my projects')
+        break
+      case 'organizations':
+        setInputValue('List my organizations')
+        break
+      case 'create-task':
+        setInputValue('Create a new task')
+        break
+      case 'create-project':
+        setInputValue('Create a new project')
+        break
+      case 'search':
+        setInputValue('Search for ')
+        break
+      case 'invite':
+        setInputValue('Invite a new team member')
+        break
+    }
+    setShowSlashMenu(false)
+    inputRef.current?.focus()
+  }
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -132,6 +240,34 @@ export default function ChatPage() {
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlashMenu && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedCommandIndex((prev) =>
+          prev < filteredSlashCommands.length - 1 ? prev + 1 : 0,
+        )
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedCommandIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredSlashCommands.length - 1,
+        )
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        if (selectedCommandIndex < filteredSlashCommands.length) {
+          selectCommand(filteredSlashCommands[selectedCommandIndex])
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        setShowSlashMenu(false)
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSendMessage()
@@ -366,13 +502,40 @@ export default function ChatPage() {
       {/* Input Area */}
       <div className="bg-white border-t border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-4">
+          {showSlashMenu && inputValue.startsWith('/') && (
+            <div className="mb-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+              <div className="py-1">
+                {filteredSlashCommands.map((cmd, index) => (
+                  <button
+                    key={cmd.command}
+                    className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 ${
+                      selectedCommandIndex === index ? 'bg-gray-50' : ''
+                    }`}
+                    onClick={() => selectCommand(cmd)}
+                  >
+                    <span className="font-mono text-sm text-indigo-600 w-20">
+                      {cmd.command}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {cmd.description}
+                    </span>
+                  </button>
+                ))}
+                {filteredSlashCommands.length === 0 && (
+                  <div className="px-4 py-2 text-sm text-gray-500">
+                    No commands found
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="relative">
             <textarea
               ref={inputRef}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
+              placeholder="Type your message or / for commands..."
               className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               rows={1}
               disabled={isLoading}
