@@ -475,7 +475,7 @@
         "id": "team-mcp-001",
         "title": "Team CRUD Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Create, read, update, delete teams",
         "tools": [
           {
@@ -514,7 +514,7 @@
         "id": "team-mcp-002",
         "title": "Team Member Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Manage team membership",
         "tools": [
           {

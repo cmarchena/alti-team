@@ -42,13 +42,38 @@ import {
   CreateCommentInput,
   UpdateCommentInput,
   CommentRepository,
+  Team,
+  CreateTeamInput,
+  UpdateTeamInput,
+  TeamRepository,
   Repositories,
-} from "./types"
-import { Result, success, failure } from "../result"
+} from './types'
+import { Result, success, failure } from '../result'
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  user: process.env.DB_USER || 'alti_team',
+  password: process.env.DB_PASSWORD || 'password123',
+  database: process.env.DB_NAME || 'alti_team',
 })
+
+const toCamelCase = (row: Record<string, unknown>): Record<string, unknown> => {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(row)) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) =>
+      letter.toUpperCase(),
+    )
+    result[camelKey] = value
+  }
+  return result
+}
+
+const toCamelCaseArray = (
+  rows: Record<string, unknown>[],
+): Record<string, unknown>[] => {
+  return rows.map(toCamelCase)
+}
 
 // Organization Repository
 class PostgresOrganizationRepository implements OrganizationRepository {
@@ -56,11 +81,14 @@ class PostgresOrganizationRepository implements OrganizationRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM organizations WHERE id = $1',
-        [id]
+        [id],
       )
-      return success(result.rows[0] || null)
+      if (result.rows.length === 0) return success(null)
+      return success(toCamelCase(result.rows[0]) as unknown as Organization)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -68,11 +96,13 @@ class PostgresOrganizationRepository implements OrganizationRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM organizations WHERE owner_id = $1',
-        [ownerId]
+        [ownerId],
       )
-      return success(result.rows)
+      return success(result.rows.map(toCamelCase) as unknown as Organization[])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -82,15 +112,20 @@ class PostgresOrganizationRepository implements OrganizationRepository {
         `INSERT INTO organizations (name, description, owner_id, created_at, updated_at)
          VALUES ($1, $2, $3, NOW(), NOW())
          RETURNING *`,
-        [data.name, data.description, data.ownerId]
+        [data.name, data.description, data.ownerId],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateOrganizationInput): Promise<Result<Organization>> {
+  async update(
+    id: string,
+    data: UpdateOrganizationInput,
+  ): Promise<Result<Organization>> {
     try {
       const setParts = []
       const values = []
@@ -110,7 +145,7 @@ class PostgresOrganizationRepository implements OrganizationRepository {
 
       const result = await pool.query(
         `UPDATE organizations SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -119,16 +154,20 @@ class PostgresOrganizationRepository implements OrganizationRepository {
 
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM organizations WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -137,25 +176,56 @@ class PostgresOrganizationRepository implements OrganizationRepository {
 class PostgresUserRepository implements UserRepository {
   async findById(id: string): Promise<Result<User | null>> {
     try {
-      const result = await pool.query(
-        'SELECT * FROM users WHERE id = $1',
-        [id]
-      )
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByEmail(email: string): Promise<Result<User | null>> {
     try {
-      const result = await pool.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
-      )
+      const result = await pool.query('SELECT * FROM users WHERE email = $1', [
+        email,
+      ])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async search(
+    query: string,
+    organizationId?: string,
+    limit?: number,
+  ): Promise<Result<User[]>> {
+    try {
+      let sql = `
+        SELECT DISTINCT u.* FROM users u
+        INNER JOIN team_members tm ON u.id = tm.user_id
+        WHERE (u.name ILIKE $1 OR u.email ILIKE $1)
+      `
+      const params: (string | number)[] = [`%${query}%`]
+      let paramIndex = 2
+
+      if (organizationId) {
+        sql += ` AND tm.organization_id = $${paramIndex++}`
+        params.push(organizationId)
+      }
+
+      sql += ` ORDER BY u.name LIMIT $${paramIndex}`
+      params.push(limit || 50)
+
+      const result = await pool.query(sql, params)
+      return success(result.rows)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -165,11 +235,13 @@ class PostgresUserRepository implements UserRepository {
         `INSERT INTO users (name, email, password, created_at, updated_at)
          VALUES ($1, $2, $3, NOW(), NOW())
          RETURNING *`,
-        [data.name, data.email, data.password]
+        [data.name, data.email, data.password],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -193,7 +265,7 @@ class PostgresUserRepository implements UserRepository {
 
       const result = await pool.query(
         `UPDATE users SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -202,16 +274,20 @@ class PostgresUserRepository implements UserRepository {
 
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM users WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -222,23 +298,29 @@ class PostgresDepartmentRepository implements DepartmentRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM departments WHERE id = $1',
-        [id]
+        [id],
       )
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Department[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Department[]>> {
     try {
       const result = await pool.query(
         'SELECT * FROM departments WHERE organization_id = $1',
-        [organizationId]
+        [organizationId],
       )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -246,11 +328,13 @@ class PostgresDepartmentRepository implements DepartmentRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM departments WHERE parent_id = $1',
-        [parentId]
+        [parentId],
       )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -260,15 +344,20 @@ class PostgresDepartmentRepository implements DepartmentRepository {
         `INSERT INTO departments (name, description, organization_id, parent_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, NOW(), NOW())
          RETURNING *`,
-        [data.name, data.description, data.organizationId, data.parentId]
+        [data.name, data.description, data.organizationId, data.parentId],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateDepartmentInput): Promise<Result<Department>> {
+  async update(
+    id: string,
+    data: UpdateDepartmentInput,
+  ): Promise<Result<Department>> {
     try {
       const setParts = []
       const values = []
@@ -292,7 +381,7 @@ class PostgresDepartmentRepository implements DepartmentRepository {
 
       const result = await pool.query(
         `UPDATE departments SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -301,16 +390,20 @@ class PostgresDepartmentRepository implements DepartmentRepository {
 
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM departments WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -319,25 +412,30 @@ class PostgresDepartmentRepository implements DepartmentRepository {
 class PostgresProjectRepository implements ProjectRepository {
   async findById(id: string): Promise<Result<Project | null>> {
     try {
-      const result = await pool.query(
-        'SELECT * FROM projects WHERE id = $1',
-        [id]
-      )
+      const result = await pool.query('SELECT * FROM projects WHERE id = $1', [
+        id,
+      ])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Project[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Project[]>> {
     try {
       const result = await pool.query(
         'SELECT * FROM projects WHERE organization_id = $1',
-        [organizationId]
+        [organizationId],
       )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -347,11 +445,20 @@ class PostgresProjectRepository implements ProjectRepository {
         `INSERT INTO projects (name, description, status, start_date, end_date, organization_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
          RETURNING *`,
-        [data.name, data.description, data.status || 'active', data.startDate, data.endDate, data.organizationId]
+        [
+          data.name,
+          data.description,
+          data.status || 'active',
+          data.startDate,
+          data.endDate,
+          data.organizationId,
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -387,7 +494,7 @@ class PostgresProjectRepository implements ProjectRepository {
 
       const result = await pool.query(
         `UPDATE projects SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -396,16 +503,20 @@ class PostgresProjectRepository implements ProjectRepository {
 
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM projects WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -414,13 +525,12 @@ class PostgresProjectRepository implements ProjectRepository {
 class PostgresTaskRepository implements TaskRepository {
   async findById(id: string): Promise<Result<Task | null>> {
     try {
-      const result = await pool.query(
-        'SELECT * FROM tasks WHERE id = $1',
-        [id]
-      )
+      const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -428,11 +538,13 @@ class PostgresTaskRepository implements TaskRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM tasks WHERE project_id = $1',
-        [projectId]
+        [projectId],
       )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -440,11 +552,13 @@ class PostgresTaskRepository implements TaskRepository {
     try {
       const result = await pool.query(
         'SELECT * FROM tasks WHERE assigned_to_id = $1',
-        [assignedToId]
+        [assignedToId],
       )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -454,11 +568,21 @@ class PostgresTaskRepository implements TaskRepository {
         `INSERT INTO tasks (title, description, status, priority, due_date, project_id, assigned_to_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
          RETURNING *`,
-        [data.title, data.description, data.status || 'todo', data.priority || 'medium', data.dueDate, data.projectId, data.assignedToId]
+        [
+          data.title,
+          data.description,
+          data.status || 'todo',
+          data.priority || 'medium',
+          data.dueDate,
+          data.projectId,
+          data.assignedToId,
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -498,7 +622,7 @@ class PostgresTaskRepository implements TaskRepository {
 
       const result = await pool.query(
         `UPDATE tasks SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -507,16 +631,20 @@ class PostgresTaskRepository implements TaskRepository {
 
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM tasks WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -525,19 +653,28 @@ class PostgresTaskRepository implements TaskRepository {
 class PostgresResourceRepository implements ResourceRepository {
   async findById(id: string): Promise<Result<Resource | null>> {
     try {
-      const result = await pool.query('SELECT * FROM resources WHERE id = $1', [id])
+      const result = await pool.query('SELECT * FROM resources WHERE id = $1', [
+        id,
+      ])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByProjectId(projectId: string): Promise<Result<Resource[]>> {
     try {
-      const result = await pool.query('SELECT * FROM resources WHERE project_id = $1', [projectId])
+      const result = await pool.query(
+        'SELECT * FROM resources WHERE project_id = $1',
+        [projectId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -546,15 +683,26 @@ class PostgresResourceRepository implements ResourceRepository {
       const result = await pool.query(
         `INSERT INTO resources (name, type, url, project_id, uploaded_by_id, created_at)
          VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
-        [data.name, data.type || 'OTHER', data.url, data.projectId, data.uploadedById]
+        [
+          data.name,
+          data.type || 'OTHER',
+          data.url,
+          data.projectId,
+          data.uploadedById,
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateResourceInput): Promise<Result<Resource>> {
+  async update(
+    id: string,
+    data: UpdateResourceInput,
+  ): Promise<Result<Resource>> {
     try {
       const setParts = []
       const values = []
@@ -576,7 +724,7 @@ class PostgresResourceRepository implements ResourceRepository {
       values.push(id)
       const result = await pool.query(
         `UPDATE resources SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -584,16 +732,20 @@ class PostgresResourceRepository implements ResourceRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM resources WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -602,28 +754,61 @@ class PostgresResourceRepository implements ResourceRepository {
 class PostgresTeamMemberRepository implements TeamMemberRepository {
   async findById(id: string): Promise<Result<TeamMember | null>> {
     try {
-      const result = await pool.query('SELECT * FROM team_members WHERE id = $1', [id])
+      const result = await pool.query(
+        'SELECT * FROM team_members WHERE id = $1',
+        [id],
+      )
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByUserId(userId: string): Promise<Result<TeamMember[]>> {
     try {
-      const result = await pool.query('SELECT * FROM team_members WHERE user_id = $1', [userId])
-      return success(result.rows)
+      const result = await pool.query(
+        'SELECT * FROM team_members WHERE user_id = $1',
+        [userId],
+      )
+      return success(result.rows.map(toCamelCase) as unknown as TeamMember[])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<TeamMember[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<TeamMember[]>> {
     try {
-      const result = await pool.query('SELECT * FROM team_members WHERE organization_id = $1', [organizationId])
-      return success(result.rows)
+      const result = await pool.query(
+        'SELECT * FROM team_members WHERE organization_id = $1',
+        [organizationId],
+      )
+      return success(result.rows.map(toCamelCase) as unknown as TeamMember[])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async findByProjectId(projectId: string): Promise<Result<TeamMember[]>> {
+    try {
+      const result = await pool.query(
+        `SELECT tm.* FROM team_members tm
+         JOIN projects p ON p.organization_id = tm.organization_id
+         WHERE p.id = $1`,
+        [projectId],
+      )
+      return success(result.rows.map(toCamelCase) as unknown as TeamMember[])
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -632,15 +817,26 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
       const result = await pool.query(
         `INSERT INTO team_members (user_id, organization_id, department_id, role, position, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
-        [data.userId, data.organizationId, data.departmentId, data.role || 'MEMBER', data.position]
+        [
+          data.userId,
+          data.organizationId,
+          data.departmentId,
+          data.role || 'MEMBER',
+          data.position,
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateTeamMemberInput): Promise<Result<TeamMember>> {
+  async update(
+    id: string,
+    data: UpdateTeamMemberInput,
+  ): Promise<Result<TeamMember>> {
     try {
       const setParts = []
       const values = []
@@ -664,7 +860,7 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
 
       const result = await pool.query(
         `UPDATE team_members SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -672,16 +868,20 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM team_members WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -690,28 +890,45 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
 class PostgresInvitationRepository implements InvitationRepository {
   async findById(id: string): Promise<Result<Invitation | null>> {
     try {
-      const result = await pool.query('SELECT * FROM invitations WHERE id = $1', [id])
+      const result = await pool.query(
+        'SELECT * FROM invitations WHERE id = $1',
+        [id],
+      )
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByToken(token: string): Promise<Result<Invitation | null>> {
     try {
-      const result = await pool.query('SELECT * FROM invitations WHERE token = $1', [token])
+      const result = await pool.query(
+        'SELECT * FROM invitations WHERE token = $1',
+        [token],
+      )
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Invitation[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Invitation[]>> {
     try {
-      const result = await pool.query('SELECT * FROM invitations WHERE organization_id = $1', [organizationId])
+      const result = await pool.query(
+        'SELECT * FROM invitations WHERE organization_id = $1',
+        [organizationId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -720,17 +937,31 @@ class PostgresInvitationRepository implements InvitationRepository {
       const result = await pool.query(
         `INSERT INTO invitations (email, role, organization_id, department_id, token, status, expires_at, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-        [data.email, data.role || 'MEMBER', data.organizationId, data.departmentId, 
-         require('crypto').randomBytes(16).toString('hex'), 'PENDING', 
-         new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)]
+        [
+          data.email,
+          data.role || 'MEMBER',
+          data.organizationId,
+          data.departmentId,
+          require('crypto').randomBytes(16).toString('hex'),
+          'PENDING',
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: Partial<CreateInvitationInput> & { status?: string; acceptedAt?: Date }): Promise<Result<Invitation>> {
+  async update(
+    id: string,
+    data: Partial<CreateInvitationInput> & {
+      status?: string
+      acceptedAt?: Date
+    },
+  ): Promise<Result<Invitation>> {
     try {
       const setParts = []
       const values = []
@@ -748,7 +979,7 @@ class PostgresInvitationRepository implements InvitationRepository {
       values.push(id)
       const result = await pool.query(
         `UPDATE invitations SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -756,16 +987,20 @@ class PostgresInvitationRepository implements InvitationRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM invitations WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -774,28 +1009,44 @@ class PostgresInvitationRepository implements InvitationRepository {
 class PostgresProcessRepository implements ProcessRepository {
   async findById(id: string): Promise<Result<Process | null>> {
     try {
-      const result = await pool.query('SELECT * FROM processes WHERE id = $1', [id])
+      const result = await pool.query('SELECT * FROM processes WHERE id = $1', [
+        id,
+      ])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Process[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Process[]>> {
     try {
-      const result = await pool.query('SELECT * FROM processes WHERE organization_id = $1', [organizationId])
+      const result = await pool.query(
+        'SELECT * FROM processes WHERE organization_id = $1',
+        [organizationId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByDepartmentId(departmentId: string): Promise<Result<Process[]>> {
     try {
-      const result = await pool.query('SELECT * FROM processes WHERE department_id = $1', [departmentId])
+      const result = await pool.query(
+        'SELECT * FROM processes WHERE department_id = $1',
+        [departmentId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -804,11 +1055,20 @@ class PostgresProcessRepository implements ProcessRepository {
       const result = await pool.query(
         `INSERT INTO processes (name, description, steps, organization_id, department_id, created_by_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-        [data.name, data.description, data.steps, data.organizationId, data.departmentId, data.createdById]
+        [
+          data.name,
+          data.description,
+          data.steps,
+          data.organizationId,
+          data.departmentId,
+          data.createdById,
+        ],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -836,7 +1096,7 @@ class PostgresProcessRepository implements ProcessRepository {
 
       const result = await pool.query(
         `UPDATE processes SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -844,16 +1104,20 @@ class PostgresProcessRepository implements ProcessRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM processes WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -862,19 +1126,29 @@ class PostgresProcessRepository implements ProcessRepository {
 class PostgresNotificationRepository implements NotificationRepository {
   async findById(id: string): Promise<Result<Notification | null>> {
     try {
-      const result = await pool.query('SELECT * FROM notifications WHERE id = $1', [id])
+      const result = await pool.query(
+        'SELECT * FROM notifications WHERE id = $1',
+        [id],
+      )
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByUserId(userId: string): Promise<Result<Notification[]>> {
     try {
-      const result = await pool.query('SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC', [userId])
+      const result = await pool.query(
+        'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC',
+        [userId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -883,11 +1157,13 @@ class PostgresNotificationRepository implements NotificationRepository {
       const result = await pool.query(
         `INSERT INTO notifications (user_id, type, message, read, created_at)
          VALUES ($1, $2, $3, false, NOW()) RETURNING *`,
-        [data.userId, data.type, data.message]
+        [data.userId, data.type, data.message],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -895,7 +1171,7 @@ class PostgresNotificationRepository implements NotificationRepository {
     try {
       const result = await pool.query(
         'UPDATE notifications SET read = true WHERE id = $1 RETURNING *',
-        [id]
+        [id],
       )
 
       if (result.rows.length === 0) {
@@ -903,34 +1179,48 @@ class PostgresNotificationRepository implements NotificationRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async markAllAsRead(userId: string): Promise<Result<void>> {
     try {
-      await pool.query('UPDATE notifications SET read = true WHERE user_id = $1', [userId])
-      return success()
+      await pool.query(
+        'UPDATE notifications SET read = true WHERE user_id = $1',
+        [userId],
+      )
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM notifications WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async deleteRead(userId: string): Promise<Result<void>> {
     try {
-      await pool.query('DELETE FROM notifications WHERE user_id = $1 AND read = true', [userId])
-      return success()
+      await pool.query(
+        'DELETE FROM notifications WHERE user_id = $1 AND read = true',
+        [userId],
+      )
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -939,19 +1229,28 @@ class PostgresNotificationRepository implements NotificationRepository {
 class PostgresCommentRepository implements CommentRepository {
   async findById(id: string): Promise<Result<Comment | null>> {
     try {
-      const result = await pool.query('SELECT * FROM comments WHERE id = $1', [id])
+      const result = await pool.query('SELECT * FROM comments WHERE id = $1', [
+        id,
+      ])
       return success(result.rows[0] || null)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByTaskId(taskId: string): Promise<Result<Comment[]>> {
     try {
-      const result = await pool.query('SELECT * FROM comments WHERE task_id = $1 ORDER BY created_at DESC', [taskId])
+      const result = await pool.query(
+        'SELECT * FROM comments WHERE task_id = $1 ORDER BY created_at DESC',
+        [taskId],
+      )
       return success(result.rows)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -961,11 +1260,13 @@ class PostgresCommentRepository implements CommentRepository {
         `INSERT INTO comments (content, task_id, user_id, parent_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, NOW(), NOW())
          RETURNING *`,
-        [data.content, data.taskId, data.userId, data.parentId || null]
+        [data.content, data.taskId, data.userId, data.parentId || null],
       )
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -984,7 +1285,7 @@ class PostgresCommentRepository implements CommentRepository {
 
       const result = await pool.query(
         `UPDATE comments SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
-        values
+        values,
       )
 
       if (result.rows.length === 0) {
@@ -992,16 +1293,107 @@ class PostgresCommentRepository implements CommentRepository {
       }
       return success(result.rows[0])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       await pool.query('DELETE FROM comments WHERE id = $1', [id])
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+}
+
+// Team Repository
+class PostgresTeamRepository implements TeamRepository {
+  async findById(id: string): Promise<Result<Team | null>> {
+    try {
+      const result = await pool.query('SELECT * FROM teams WHERE id = $1', [id])
+      return success(result.rows[0] || null)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async findByOrganizationId(organizationId: string): Promise<Result<Team[]>> {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM teams WHERE organization_id = $1 ORDER BY created_at DESC',
+        [organizationId],
+      )
+      return success(result.rows)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async create(data: CreateTeamInput): Promise<Result<Team>> {
+    try {
+      const result = await pool.query(
+        `INSERT INTO teams (name, description, organization_id, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
+        [data.name, data.description || null, data.organizationId],
+      )
+      return success(result.rows[0])
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async update(id: string, data: UpdateTeamInput): Promise<Result<Team>> {
+    try {
+      const setParts = []
+      const values = []
+      let paramIndex = 1
+
+      if (data.name !== undefined) {
+        setParts.push(`name = $${paramIndex++}`)
+        values.push(data.name)
+      }
+      if (data.description !== undefined) {
+        setParts.push(`description = $${paramIndex++}`)
+        values.push(data.description)
+      }
+      setParts.push(`updated_at = NOW()`)
+      values.push(id)
+
+      const result = await pool.query(
+        `UPDATE teams SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+        values,
+      )
+
+      if (result.rows.length === 0) {
+        return failure(new Error(`Team with id ${id} not found`))
+      }
+      return success(result.rows[0])
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async delete(id: string): Promise<Result<void>> {
+    try {
+      await pool.query('DELETE FROM teams WHERE id = $1', [id])
+      return success(undefined)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -1020,5 +1412,6 @@ export const createPostgresRepositories = (): Repositories => {
     processes: new PostgresProcessRepository(),
     notifications: new PostgresNotificationRepository(),
     comments: new PostgresCommentRepository(),
+    teams: new PostgresTeamRepository(),
   }
 }

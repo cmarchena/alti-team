@@ -41,9 +41,13 @@ import {
   CreateCommentInput,
   UpdateCommentInput,
   CommentRepository,
+  Team,
+  CreateTeamInput,
+  UpdateTeamInput,
+  TeamRepository,
   Repositories,
-} from "./types"
-import { Result, success, failure } from "../result"
+} from './types'
+import { Result, success, failure, isSuccess, isFailure } from '../result'
 
 // In-memory storage
 let organizations: Organization[] = []
@@ -57,6 +61,7 @@ let invitations: Invitation[] = []
 let processes: Process[] = []
 let notifications: Notification[] = []
 let comments: Comment[] = []
+let teams: Team[] = []
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substr(2, 9)
@@ -68,7 +73,9 @@ class InMemoryOrganizationRepository implements OrganizationRepository {
       const organization = organizations.find((org) => org.id === id) || null
       return success(organization)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -77,7 +84,9 @@ class InMemoryOrganizationRepository implements OrganizationRepository {
       const orgs = organizations.filter((org) => org.ownerId === ownerId)
       return success(orgs)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -92,11 +101,16 @@ class InMemoryOrganizationRepository implements OrganizationRepository {
       organizations.push(organization)
       return success(organization)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateOrganizationInput): Promise<Result<Organization>> {
+  async update(
+    id: string,
+    data: UpdateOrganizationInput,
+  ): Promise<Result<Organization>> {
     try {
       const index = organizations.findIndex((org) => org.id === id)
       if (index === -1) {
@@ -109,16 +123,20 @@ class InMemoryOrganizationRepository implements OrganizationRepository {
       }
       return success(organizations[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       organizations = organizations.filter((org) => org.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -130,7 +148,9 @@ class InMemoryUserRepository implements UserRepository {
       const user = users.find((user) => user.id === id) || null
       return success(user)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -139,7 +159,9 @@ class InMemoryUserRepository implements UserRepository {
       const user = users.find((user) => user.email === email) || null
       return success(user)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -154,7 +176,9 @@ class InMemoryUserRepository implements UserRepository {
       users.push(user)
       return success(user)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -164,49 +188,63 @@ class InMemoryUserRepository implements UserRepository {
       if (index === -1) {
         return failure(new Error(`User with id ${id} not found`))
       }
-      
+
       const currentUser = users[index]
       let updatedAt = new Date()
-      
+
       // Ensure updatedAt is always after createdAt
       if (updatedAt.getTime() <= currentUser.createdAt.getTime()) {
         updatedAt = new Date(currentUser.createdAt.getTime() + 1)
       }
-      
+
       users[index] = {
         ...currentUser,
         ...data,
         updatedAt,
       }
-      
+
       return success(users[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       users = users.filter((user) => user.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async search(query: string, organizationId?: string, limit?: number): Promise<Result<User[]>> {
+  async search(
+    query: string,
+    organizationId?: string,
+    limit?: number,
+  ): Promise<Result<User[]>> {
     try {
-      let filteredUsers = users.filter(user => 
-        user.name?.toLowerCase().includes(query.toLowerCase()) ||
-        user.email.toLowerCase().includes(query.toLowerCase())
+      let filteredUsers = users.filter(
+        (user) =>
+          user.name?.toLowerCase().includes(query.toLowerCase()) ||
+          user.email.toLowerCase().includes(query.toLowerCase()),
       )
 
       // Filter by organization if provided
       if (organizationId) {
-        const orgMembers = await new InMemoryTeamMemberRepository().findByOrganizationId(organizationId)
-        if (orgMembers.isOk()) {
-          const memberUserIds = orgMembers.value.map(m => m.userId)
-          filteredUsers = filteredUsers.filter(user => memberUserIds.includes(user.id))
+        const orgMembers =
+          await new InMemoryTeamMemberRepository().findByOrganizationId(
+            organizationId,
+          )
+        if (isSuccess(orgMembers)) {
+          const memberUserIds = orgMembers.data.map((m) => m.userId)
+          filteredUsers = filteredUsers.filter((user) =>
+            memberUserIds.includes(user.id),
+          )
         }
       }
 
@@ -217,7 +255,9 @@ class InMemoryUserRepository implements UserRepository {
 
       return success(filteredUsers)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -229,16 +269,24 @@ class InMemoryDepartmentRepository implements DepartmentRepository {
       const department = departments.find((dept) => dept.id === id) || null
       return success(department)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Department[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Department[]>> {
     try {
-      const depts = departments.filter((dept) => dept.organizationId === organizationId)
+      const depts = departments.filter(
+        (dept) => dept.organizationId === organizationId,
+      )
       return success(depts)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -247,7 +295,9 @@ class InMemoryDepartmentRepository implements DepartmentRepository {
       const depts = departments.filter((dept) => dept.parentId === parentId)
       return success(depts)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -263,34 +313,46 @@ class InMemoryDepartmentRepository implements DepartmentRepository {
       departments.push(department)
       return success(department)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateDepartmentInput): Promise<Result<Department>> {
+  async update(
+    id: string,
+    data: UpdateDepartmentInput,
+  ): Promise<Result<Department>> {
     try {
       const index = departments.findIndex((dept) => dept.id === id)
       if (index === -1) {
         return failure(new Error(`Department with id ${id} not found`))
       }
-      departments[index] = {
+      const updated = {
         ...departments[index],
-        parentId: data.parentId ?? departments[index].parentId,
         ...data,
         updatedAt: new Date(),
       }
+      if (updated.parentId === null) {
+        delete updated.parentId
+      }
+      departments[index] = updated as Department
       return success(departments[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       departments = departments.filter((dept) => dept.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -302,16 +364,24 @@ class InMemoryProjectRepository implements ProjectRepository {
       const project = projects.find((proj) => proj.id === id) || null
       return success(project)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Project[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Project[]>> {
     try {
-      const projs = projects.filter((proj) => proj.organizationId === organizationId)
+      const projs = projects.filter(
+        (proj) => proj.organizationId === organizationId,
+      )
       return success(projs)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -319,7 +389,7 @@ class InMemoryProjectRepository implements ProjectRepository {
     try {
       const project: Project = {
         id: generateId(),
-        status: data.status || "active",
+        status: data.status || 'active',
         ...data,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -327,7 +397,9 @@ class InMemoryProjectRepository implements ProjectRepository {
       projects.push(project)
       return success(project)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -344,16 +416,20 @@ class InMemoryProjectRepository implements ProjectRepository {
       }
       return success(projects[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       projects = projects.filter((proj) => proj.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -365,7 +441,9 @@ class InMemoryTaskRepository implements TaskRepository {
       const task = tasks.find((task) => task.id === id) || null
       return success(task)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -374,16 +452,22 @@ class InMemoryTaskRepository implements TaskRepository {
       const taskList = tasks.filter((task) => task.projectId === projectId)
       return success(taskList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByAssignedToId(assignedToId: string): Promise<Result<Task[]>> {
     try {
-      const taskList = tasks.filter((task) => task.assignedToId === assignedToId)
+      const taskList = tasks.filter(
+        (task) => task.assignedToId === assignedToId,
+      )
       return success(taskList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -391,8 +475,8 @@ class InMemoryTaskRepository implements TaskRepository {
     try {
       const task: Task = {
         id: generateId(),
-        status: data.status || "todo",
-        priority: data.priority || "medium",
+        status: data.status || 'todo',
+        priority: data.priority || 'medium',
         ...data,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -400,7 +484,9 @@ class InMemoryTaskRepository implements TaskRepository {
       tasks.push(task)
       return success(task)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -417,16 +503,20 @@ class InMemoryTaskRepository implements TaskRepository {
       }
       return success(tasks[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       tasks = tasks.filter((task) => task.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -438,7 +528,9 @@ class InMemoryResourceRepository implements ResourceRepository {
       const resource = resources.find((r) => r.id === id) || null
       return success(resource)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -447,7 +539,9 @@ class InMemoryResourceRepository implements ResourceRepository {
       const resourceList = resources.filter((r) => r.projectId === projectId)
       return success(resourceList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -455,18 +549,23 @@ class InMemoryResourceRepository implements ResourceRepository {
     try {
       const resource: Resource = {
         id: generateId(),
-        type: data.type || "FILE",
+        type: data.type || 'FILE',
         ...data,
         createdAt: new Date(),
       }
       resources.push(resource)
       return success(resource)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateResourceInput): Promise<Result<Resource>> {
+  async update(
+    id: string,
+    data: UpdateResourceInput,
+  ): Promise<Result<Resource>> {
     try {
       const index = resources.findIndex((r) => r.id === id)
       if (index === -1) {
@@ -478,16 +577,20 @@ class InMemoryResourceRepository implements ResourceRepository {
       }
       return success(resources[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       resources = resources.filter((r) => r.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -499,7 +602,9 @@ class InMemoryTeamMemberRepository implements TeamMemberRepository {
       const member = teamMembers.find((m) => m.id === id) || null
       return success(member)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -508,16 +613,39 @@ class InMemoryTeamMemberRepository implements TeamMemberRepository {
       const members = teamMembers.filter((m) => m.userId === userId)
       return success(members)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<TeamMember[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<TeamMember[]>> {
     try {
-      const members = teamMembers.filter((m) => m.organizationId === organizationId)
+      const members = teamMembers.filter(
+        (m) => m.organizationId === organizationId,
+      )
       return success(members)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async findByProjectId(projectId: string): Promise<Result<TeamMember[]>> {
+    try {
+      const project = projects.find((p) => p.id === projectId)
+      if (!project) return success([])
+      const members = teamMembers.filter(
+        (m) => m.organizationId === project.organizationId,
+      )
+      return success(members)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -525,7 +653,7 @@ class InMemoryTeamMemberRepository implements TeamMemberRepository {
     try {
       const member: TeamMember = {
         id: generateId(),
-        role: data.role || "MEMBER",
+        role: data.role || 'MEMBER',
         departmentId: data.departmentId || undefined,
         ...data,
         createdAt: new Date(),
@@ -534,34 +662,46 @@ class InMemoryTeamMemberRepository implements TeamMemberRepository {
       teamMembers.push(member)
       return success(member)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: UpdateTeamMemberInput): Promise<Result<TeamMember>> {
+  async update(
+    id: string,
+    data: UpdateTeamMemberInput,
+  ): Promise<Result<TeamMember>> {
     try {
       const index = teamMembers.findIndex((m) => m.id === id)
       if (index === -1) {
         return failure(new Error(`TeamMember with id ${id} not found`))
       }
-      teamMembers[index] = {
+      const updated = {
         ...teamMembers[index],
-        departmentId: data.departmentId ?? teamMembers[index].departmentId,
         ...data,
         updatedAt: new Date(),
       }
+      if (updated.departmentId === null) {
+        delete updated.departmentId
+      }
+      teamMembers[index] = updated as TeamMember
       return success(teamMembers[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       teamMembers = teamMembers.filter((m) => m.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -573,7 +713,9 @@ class InMemoryInvitationRepository implements InvitationRepository {
       const invitation = invitations.find((i) => i.id === id) || null
       return success(invitation)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -582,16 +724,24 @@ class InMemoryInvitationRepository implements InvitationRepository {
       const invitation = invitations.find((i) => i.token === token) || null
       return success(invitation)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Invitation[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Invitation[]>> {
     try {
-      const invitationList = invitations.filter((i) => i.organizationId === organizationId)
+      const invitationList = invitations.filter(
+        (i) => i.organizationId === organizationId,
+      )
       return success(invitationList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -600,8 +750,8 @@ class InMemoryInvitationRepository implements InvitationRepository {
       const invitation: Invitation = {
         id: generateId(),
         token: generateId(),
-        status: "PENDING",
-        role: data.role || "MEMBER",
+        status: 'PENDING',
+        role: data.role || 'MEMBER',
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         createdAt: new Date(),
         ...data,
@@ -609,11 +759,19 @@ class InMemoryInvitationRepository implements InvitationRepository {
       invitations.push(invitation)
       return success(invitation)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async update(id: string, data: Partial<CreateInvitationInput> & { status?: string; acceptedAt?: Date }): Promise<Result<Invitation>> {
+  async update(
+    id: string,
+    data: Partial<CreateInvitationInput> & {
+      status?: string
+      acceptedAt?: Date
+    },
+  ): Promise<Result<Invitation>> {
     try {
       const index = invitations.findIndex((i) => i.id === id)
       if (index === -1) {
@@ -625,16 +783,20 @@ class InMemoryInvitationRepository implements InvitationRepository {
       }
       return success(invitations[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       invitations = invitations.filter((i) => i.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -646,25 +808,37 @@ class InMemoryProcessRepository implements ProcessRepository {
       const process = processes.find((p) => p.id === id) || null
       return success(process)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
-  async findByOrganizationId(organizationId: string): Promise<Result<Process[]>> {
+  async findByOrganizationId(
+    organizationId: string,
+  ): Promise<Result<Process[]>> {
     try {
-      const processList = processes.filter((p) => p.organizationId === organizationId)
+      const processList = processes.filter(
+        (p) => p.organizationId === organizationId,
+      )
       return success(processList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async findByDepartmentId(departmentId: string): Promise<Result<Process[]>> {
     try {
-      const processList = processes.filter((p) => p.departmentId === departmentId)
+      const processList = processes.filter(
+        (p) => p.departmentId === departmentId,
+      )
       return success(processList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -679,7 +853,9 @@ class InMemoryProcessRepository implements ProcessRepository {
       processes.push(process)
       return success(process)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -696,16 +872,20 @@ class InMemoryProcessRepository implements ProcessRepository {
       }
       return success(processes[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       processes = processes.filter((p) => p.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -717,7 +897,9 @@ class InMemoryNotificationRepository implements NotificationRepository {
       const notification = notifications.find((n) => n.id === id) || null
       return success(notification)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -726,7 +908,9 @@ class InMemoryNotificationRepository implements NotificationRepository {
       const notificationList = notifications.filter((n) => n.userId === userId)
       return success(notificationList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -741,7 +925,9 @@ class InMemoryNotificationRepository implements NotificationRepository {
       notifications.push(notification)
       return success(notification)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -757,36 +943,46 @@ class InMemoryNotificationRepository implements NotificationRepository {
       }
       return success(notifications[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async markAllAsRead(userId: string): Promise<Result<void>> {
     try {
       notifications = notifications.map((n) =>
-        n.userId === userId ? { ...n, read: true } : n
+        n.userId === userId ? { ...n, read: true } : n,
       )
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       notifications = notifications.filter((n) => n.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async deleteRead(userId: string): Promise<Result<void>> {
     try {
-      notifications = notifications.filter((n) => !(n.userId === userId && n.read))
-      return success()
+      notifications = notifications.filter(
+        (n) => !(n.userId === userId && n.read),
+      )
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -798,7 +994,9 @@ class InMemoryCommentRepository implements CommentRepository {
       const comment = comments.find((c) => c.id === id) || null
       return success(comment)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -807,7 +1005,9 @@ class InMemoryCommentRepository implements CommentRepository {
       const commentList = comments.filter((c) => c.taskId === taskId)
       return success(commentList)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -822,7 +1022,9 @@ class InMemoryCommentRepository implements CommentRepository {
       comments.push(comment)
       return success(comment)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
@@ -839,16 +1041,92 @@ class InMemoryCommentRepository implements CommentRepository {
       }
       return success(comments[index])
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 
   async delete(id: string): Promise<Result<void>> {
     try {
       comments = comments.filter((c) => c.id !== id)
-      return success()
+      return success(undefined)
     } catch (error) {
-      return failure(error instanceof Error ? error : new Error("Unknown error"))
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+}
+
+// Team Repository
+class InMemoryTeamRepository implements TeamRepository {
+  async findById(id: string): Promise<Result<Team | null>> {
+    try {
+      const team = teams.find((t) => t.id === id) || null
+      return success(team)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async findByOrganizationId(organizationId: string): Promise<Result<Team[]>> {
+    try {
+      const teamList = teams.filter((t) => t.organizationId === organizationId)
+      return success(teamList)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async create(data: CreateTeamInput): Promise<Result<Team>> {
+    try {
+      const team: Team = {
+        id: generateId(),
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      teams.push(team)
+      return success(team)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async update(id: string, data: UpdateTeamInput): Promise<Result<Team>> {
+    try {
+      const index = teams.findIndex((t) => t.id === id)
+      if (index === -1) {
+        return failure(new Error(`Team with id ${id} not found`))
+      }
+      teams[index] = {
+        ...teams[index],
+        ...data,
+        updatedAt: new Date(),
+      }
+      return success(teams[index])
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async delete(id: string): Promise<Result<void>> {
+    try {
+      teams = teams.filter((t) => t.id !== id)
+      return success(undefined)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
     }
   }
 }
@@ -867,5 +1145,6 @@ export const createInMemoryRepositories = (): Repositories => {
     processes: new InMemoryProcessRepository(),
     notifications: new InMemoryNotificationRepository(),
     comments: new InMemoryCommentRepository(),
+    teams: new InMemoryTeamRepository(),
   }
 }

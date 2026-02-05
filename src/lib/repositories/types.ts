@@ -24,7 +24,10 @@ export interface OrganizationRepository {
   findById(id: string): Promise<Result<Organization | null>>
   findByOwnerId(ownerId: string): Promise<Result<Organization[]>>
   create(data: CreateOrganizationInput): Promise<Result<Organization>>
-  update(id: string, data: UpdateOrganizationInput): Promise<Result<Organization>>
+  update(
+    id: string,
+    data: UpdateOrganizationInput,
+  ): Promise<Result<Organization>>
   delete(id: string): Promise<Result<void>>
 }
 
@@ -33,6 +36,7 @@ export interface User {
   email: string
   name?: string
   password?: string
+  bio?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -46,12 +50,17 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string
   password?: string
+  bio?: string
 }
 
 export interface UserRepository {
   findById(id: string): Promise<Result<User | null>>
   findByEmail(email: string): Promise<Result<User | null>>
-  search(query: string, organizationId?: string, limit?: number): Promise<Result<User[]>>
+  search(
+    query: string,
+    organizationId?: string,
+    limit?: number,
+  ): Promise<Result<User[]>>
   create(data: CreateUserInput): Promise<Result<User>>
   update(id: string, data: UpdateUserInput): Promise<Result<User>>
   delete(id: string): Promise<Result<void>>
@@ -230,6 +239,7 @@ export interface TeamMemberRepository {
   findById(id: string): Promise<Result<TeamMember | null>>
   findByUserId(userId: string): Promise<Result<TeamMember[]>>
   findByOrganizationId(organizationId: string): Promise<Result<TeamMember[]>>
+  findByProjectId(projectId: string): Promise<Result<TeamMember[]>>
   create(data: CreateTeamMemberInput): Promise<Result<TeamMember>>
   update(id: string, data: UpdateTeamMemberInput): Promise<Result<TeamMember>>
   delete(id: string): Promise<Result<void>>
@@ -260,7 +270,13 @@ export interface InvitationRepository {
   findByToken(token: string): Promise<Result<Invitation | null>>
   findByOrganizationId(organizationId: string): Promise<Result<Invitation[]>>
   create(data: CreateInvitationInput): Promise<Result<Invitation>>
-  update(id: string, data: Partial<CreateInvitationInput> & { status?: string; acceptedAt?: Date }): Promise<Result<Invitation>>
+  update(
+    id: string,
+    data: Partial<CreateInvitationInput> & {
+      status?: string
+      acceptedAt?: Date
+    },
+  ): Promise<Result<Invitation>>
   delete(id: string): Promise<Result<void>>
 }
 
@@ -335,6 +351,34 @@ export interface Comment {
   updatedAt: Date
 }
 
+export interface Team {
+  id: string
+  name: string
+  description?: string
+  organizationId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CreateTeamInput {
+  name: string
+  description?: string
+  organizationId: string
+}
+
+export interface UpdateTeamInput {
+  name?: string
+  description?: string
+}
+
+export interface TeamRepository {
+  findById(id: string): Promise<Result<Team | null>>
+  findByOrganizationId(organizationId: string): Promise<Result<Team[]>>
+  create(data: CreateTeamInput): Promise<Result<Team>>
+  update(id: string, data: UpdateTeamInput): Promise<Result<Team>>
+  delete(id: string): Promise<Result<void>>
+}
+
 export interface CreateCommentInput {
   content: string
   taskId: string
@@ -366,4 +410,5 @@ export interface Repositories {
   processes: ProcessRepository
   notifications: NotificationRepository
   comments: CommentRepository
+  teams: TeamRepository
 }

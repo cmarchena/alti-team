@@ -1,8 +1,8 @@
+import { isSuccess, isFailure } from '../../lib/result'
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
 
-// Team CRUD Tools
-
+// Create Team Tool
 const createTeamTool = {
   name: 'create_team',
   description: 'Create a new team',
@@ -23,55 +23,59 @@ const createTeamTool = {
       }
     }
 
-    // Validate user has access to organization
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       args.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this organization' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    // Note: Current implementation uses departments as teams
-    // In a real implementation, we might have a separate teams table
-    const result = await context.repositories.departments.create({
+    const result = await context.repositories.teams.create({
       name: args.name,
       description: args.description || '',
       organizationId: args.organizationId,
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const team = result.value
-
+    const team = result.data
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            id: team.id,
-            name: team.name,
-            description: team.description,
-            organizationId: team.organizationId,
-            createdAt: team.createdAt,
-            updatedAt: team.updatedAt,
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              id: team.id,
+              name: team.name,
+              description: team.description,
+              organizationId: team.organizationId,
+              createdAt: team.createdAt,
+            },
+            null,
+            2,
+          ),
         },
       ],
     }
   },
 }
 
+// Get Team Tool
 const getTeamTool = {
   name: 'get_team',
   description: 'Get team details',
@@ -90,18 +94,16 @@ const getTeamTool = {
       }
     }
 
-    // Get team (using departments as teams)
-    const result = await context.repositories.departments.findById(args.teamId)
+    const teamResult = await context.repositories.teams.findById(args.teamId)
 
-    if (result.isErr()) {
+    if (isFailure(teamResult)) {
       return {
-        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        content: [{ type: 'text', text: `Error: ${teamResult.error.message}` }],
         isError: true,
       }
     }
 
-    const team = result.value
-
+    const team = teamResult.data
     if (!team) {
       return {
         content: [{ type: 'text', text: 'Team not found' }],
@@ -109,16 +111,19 @@ const getTeamTool = {
       }
     }
 
-    // Validate user has access to the team's organization
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       team.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this team' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
@@ -127,20 +132,25 @@ const getTeamTool = {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            id: team.id,
-            name: team.name,
-            description: team.description,
-            organizationId: team.organizationId,
-            createdAt: team.createdAt,
-            updatedAt: team.updatedAt,
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              id: team.id,
+              name: team.name,
+              description: team.description,
+              organizationId: team.organizationId,
+              createdAt: team.createdAt,
+              updatedAt: team.updatedAt,
+            },
+            null,
+            2,
+          ),
         },
       ],
     }
   },
 }
 
+// List Teams Tool
 const listTeamsTool = {
   name: 'list_teams',
   description: 'List teams in organization',
@@ -159,43 +169,191 @@ const listTeamsTool = {
       }
     }
 
-    // Validate user has access to organization
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       args.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this organization' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    // Get all teams (departments) for the organization
-    const result = await context.repositories.departments.findByOrganizationId(args.organizationId)
+    const result = await context.repositories.teams.findByOrganizationId(
+      args.organizationId,
+    )
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const teams = result.value
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            result.data.map((team) => ({
+              id: team.id,
+              name: team.name,
+              description: team.description,
+              organizationId: team.organizationId,
+              createdAt: team.createdAt,
+            })),
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  },
+}
+
+// Update Team Tool
+const updateTeamTool = {
+  name: 'update_team',
+  description: 'Update team information',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      teamId: { type: 'string', description: 'Team ID' },
+      name: { type: 'string', description: 'New team name' },
+      description: { type: 'string', description: 'New team description' },
+    },
+    required: ['teamId'],
+  },
+  handler: async (args: any, context: MCPServerContext) => {
+    if (!context.userId) {
+      return {
+        content: [{ type: 'text', text: 'Authentication required' }],
+        isError: true,
+      }
+    }
+
+    const teamResult = await context.repositories.teams.findById(args.teamId)
+
+    if (isFailure(teamResult) || !teamResult.data) {
+      return {
+        content: [{ type: 'text', text: 'Team not found' }],
+        isError: true,
+      }
+    }
+
+    const team = teamResult.data
+    const hasAccess = await validateOrganizationAccess(
+      context.userId,
+      team.organizationId,
+      context,
+    )
+    if (!hasAccess) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
+        isError: true,
+      }
+    }
+
+    const updateData: any = {}
+    if (args.name !== undefined) updateData.name = args.name
+    if (args.description !== undefined)
+      updateData.description = args.description
+
+    const result = await context.repositories.teams.update(
+      args.teamId,
+      updateData,
+    )
+
+    if (isFailure(result)) {
+      return {
+        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        isError: true,
+      }
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(teams.map(t => ({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-            organizationId: t.organizationId,
-            createdAt: t.createdAt,
-          })), null, 2),
+          text: 'Team updated successfully',
+        },
+      ],
+    }
+  },
+}
+
+// Delete Team Tool
+const deleteTeamTool = {
+  name: 'delete_team',
+  description: 'Delete a team',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      teamId: { type: 'string', description: 'Team ID' },
+    },
+    required: ['teamId'],
+  },
+  handler: async (args: any, context: MCPServerContext) => {
+    if (!context.userId) {
+      return {
+        content: [{ type: 'text', text: 'Authentication required' }],
+        isError: true,
+      }
+    }
+
+    const teamResult = await context.repositories.teams.findById(args.teamId)
+
+    if (isFailure(teamResult) || !teamResult.data) {
+      return {
+        content: [{ type: 'text', text: 'Team not found' }],
+        isError: true,
+      }
+    }
+
+    const team = teamResult.data
+    const hasAccess = await validateOrganizationAccess(
+      context.userId,
+      team.organizationId,
+      context,
+    )
+    if (!hasAccess) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
+        isError: true,
+      }
+    }
+
+    const result = await context.repositories.teams.delete(args.teamId)
+
+    if (isFailure(result)) {
+      return {
+        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        isError: true,
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Team deleted successfully',
         },
       ],
     }
@@ -211,10 +369,10 @@ const addTeamMemberTool = {
     properties: {
       teamId: { type: 'string', description: 'Team ID' },
       userId: { type: 'string', description: 'User ID' },
-      role: { 
-        type: 'string', 
+      role: {
+        type: 'string',
         description: 'Member role',
-        enum: ['member', 'lead'] 
+        enum: ['member', 'lead'],
       },
     },
     required: ['teamId', 'userId'],
@@ -227,18 +385,16 @@ const addTeamMemberTool = {
       }
     }
 
-    // Validate user has access to the team's organization
-    const teamResult = await context.repositories.departments.findById(args.teamId)
+    const teamResult = await context.repositories.teams.findById(args.teamId)
 
-    if (teamResult.isErr()) {
+    if (isFailure(teamResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${teamResult.error.message}` }],
         isError: true,
       }
     }
 
-    const team = teamResult.value
-
+    const team = teamResult.data
     if (!team) {
       return {
         content: [{ type: 'text', text: 'Team not found' }],
@@ -249,45 +405,50 @@ const addTeamMemberTool = {
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       team.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this team' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    // Create team member
     const result = await context.repositories.teamMembers.create({
       userId: args.userId,
       organizationId: team.organizationId,
-      departmentId: args.teamId, // Using departmentId to represent team membership
+      departmentId: args.teamId,
       role: args.role || 'member',
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const member = result.value
-
+    const member = result.data
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            id: member.id,
-            userId: member.userId,
-            teamId: args.teamId,
-            role: member.role,
-            createdAt: member.createdAt,
-            message: 'Member added to team successfully',
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              id: member.id,
+              userId: member.userId,
+              teamId: args.teamId,
+              role: member.role,
+              createdAt: member.createdAt,
+            },
+            null,
+            2,
+          ),
         },
       ],
     }
@@ -314,18 +475,16 @@ const removeTeamMemberTool = {
       }
     }
 
-    // Validate user has access to the team's organization
-    const teamResult = await context.repositories.departments.findById(args.teamId)
+    const teamResult = await context.repositories.teams.findById(args.teamId)
 
-    if (teamResult.isErr()) {
+    if (isFailure(teamResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${teamResult.error.message}` }],
         isError: true,
       }
     }
 
-    const team = teamResult.value
-
+    const team = teamResult.data
     if (!team) {
       return {
         content: [{ type: 'text', text: 'Team not found' }],
@@ -336,28 +495,38 @@ const removeTeamMemberTool = {
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       team.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this team' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    // Find and remove team member
-    const membersResult = await context.repositories.teamMembers.findByOrganizationId(team.organizationId)
+    const membersResult =
+      await context.repositories.teamMembers.findByOrganizationId(
+        team.organizationId,
+      )
 
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
-        content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
+        content: [
+          { type: 'text', text: `Error: ${membersResult.error.message}` },
+        ],
         isError: true,
       }
     }
 
-    const members = membersResult.value
-    const memberToRemove = members.find(m => m.userId === args.userId && m.departmentId === args.teamId)
+    const members = membersResult.data
+    const memberToRemove = members.find(
+      (m) => m.userId === args.userId && m.departmentId === args.teamId,
+    )
 
     if (!memberToRemove) {
       return {
@@ -366,9 +535,11 @@ const removeTeamMemberTool = {
       }
     }
 
-    const result = await context.repositories.teamMembers.delete(memberToRemove.id)
+    const result = await context.repositories.teamMembers.delete(
+      memberToRemove.id,
+    )
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
@@ -405,18 +576,16 @@ const listTeamMembersTool = {
       }
     }
 
-    // Validate user has access to the team's organization
-    const teamResult = await context.repositories.departments.findById(args.teamId)
+    const teamResult = await context.repositories.teams.findById(args.teamId)
 
-    if (teamResult.isErr()) {
+    if (isFailure(teamResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${teamResult.error.message}` }],
         isError: true,
       }
     }
 
-    const team = teamResult.value
-
+    const team = teamResult.data
     if (!team) {
       return {
         content: [{ type: 'text', text: 'Team not found' }],
@@ -427,34 +596,45 @@ const listTeamMembersTool = {
     const hasAccess = await validateOrganizationAccess(
       context.userId,
       team.organizationId,
-      context
+      context,
     )
-
     if (!hasAccess) {
       return {
-        content: [{ type: 'text', text: 'Access denied: User does not have access to this team' }],
+        content: [
+          {
+            type: 'text',
+            text: 'Access denied. You are not a member of this organization.',
+          },
+        ],
         isError: true,
       }
     }
 
-    // Get team members
-    const membersResult = await context.repositories.teamMembers.findByOrganizationId(team.organizationId)
+    const membersResult =
+      await context.repositories.teamMembers.findByOrganizationId(
+        team.organizationId,
+      )
 
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
-        content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
+        content: [
+          { type: 'text', text: `Error: ${membersResult.error.message}` },
+        ],
         isError: true,
       }
     }
 
-    const members = membersResult.value.filter(m => m.departmentId === args.teamId)
+    const members = membersResult.data.filter(
+      (m) => m.departmentId === args.teamId,
+    )
 
-    // Get user details for each member
     const membersWithDetails = await Promise.all(
       members.map(async (member) => {
-        const userResult = await context.repositories.users.findById(member.userId)
-        const user = userResult.isOk() ? userResult.value : null
-        
+        const userResult = await context.repositories.users.findById(
+          member.userId,
+        )
+        const user = isSuccess(userResult) ? userResult.data : null
+
         return {
           id: member.id,
           userId: member.userId,
@@ -464,7 +644,7 @@ const listTeamMembersTool = {
           position: member.position,
           createdAt: member.createdAt,
         }
-      })
+      }),
     )
 
     return {
@@ -478,10 +658,12 @@ const listTeamMembersTool = {
   },
 }
 
-// Register team tools
+// Register tools
 registerTool(createTeamTool)
 registerTool(getTeamTool)
 registerTool(listTeamsTool)
+registerTool(updateTeamTool)
+registerTool(deleteTeamTool)
 registerTool(addTeamMemberTool)
 registerTool(removeTeamMemberTool)
 registerTool(listTeamMembersTool)

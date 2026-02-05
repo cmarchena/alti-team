@@ -448,8 +448,29 @@
   - Organization access validation via validateOrganizationAccess
   - Proper error handling with descriptive messages
   - Comment creation/retrieval via repository pattern
-- Both tools are registered at the end of the file
+  - Both tools are registered at the end of the file
 - Updated prd.json to mark task-mcp-003 as "done"
 - Decision: Noted that code was complete but PRD status was out of sync (continuing pattern)
 - Note: TypeScript compilation successful with npx tsc --noEmit
 - Pattern continues: MCP tools implemented but PRD not updated to reflect completion
+
+## Iteration 29: Team CRUD Tools (team-mcp-001, team-mcp-002)
+- Implemented Team CRUD Tools for MCP server with proper Team repository pattern
+- Added Team interface and TeamRepository to src/lib/repositories/types.ts
+- Added InMemoryTeamRepository implementation for development
+- Added PostgresTeamRepository implementation for PostgreSQL (with CRUD operations)
+- Updated team MCP tools in src/mcp-server/tools/team.ts to use new Team repository:
+  - create_team: Creates a new team with organization validation
+  - get_team: Gets team details with access validation
+  - list_teams: Lists all teams in an organization
+  - update_team: Updates team information
+  - delete_team: Deletes a team
+  - add_team_member: Adds a member to a team
+  - remove_team_member: Removes a member from a team
+  - list_team_members: Lists all members of a team with user details
+- All tools include proper authentication and organization access validation
+- TypeScript compilation passes with npx tsc --noEmit
+- Updated prd.json to mark team-mcp-001 and team-mcp-002 as "done"
+- Decision: Created dedicated Team model to separate teams from departments
+- Learning: Repository pattern with dependency injection enables clean separation between data access and business logic
+
