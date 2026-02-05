@@ -46,6 +46,11 @@ import {
   UpdateTeamInput,
   TeamRepository,
   Repositories,
+  Conversation,
+  CreateConversationInput,
+  ConversationRepository,
+  CreateMessageInput,
+  ConversationMessage,
 } from './types'
 import { Result, success, failure, isSuccess, isFailure } from '../result'
 
@@ -62,6 +67,10 @@ let processes: Process[] = []
 let notifications: Notification[] = []
 let comments: Comment[] = []
 let teams: Team[] = []
+let conversations: Conversation[] = []
+let conversationMessages: ConversationMessage[] = []
+
+const MAX_MESSAGES_PER_CONVERSATION = 50
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substr(2, 9)
@@ -1131,6 +1140,127 @@ class InMemoryTeamRepository implements TeamRepository {
   }
 }
 
+// Conversation Repository
+class InMemoryConversationRepository implements ConversationRepository {
+  async findById(id: string): Promise<Result<Conversation | null>> {
+    try {
+      const conversation = conversations.find((c) => c.id === id) || null
+      return success(conversation)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async findByUserId(userId: string): Promise<Result<Conversation[]>> {
+    try {
+      const userConversations = conversations
+        .filter((c) => c.userId === userId)
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      return success(userConversations)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async create(data: CreateConversationInput): Promise<Result<Conversation>> {
+    try {
+      const conversation: Conversation = {
+        id: generateId(),
+        userId: data.userId,
+        title: data.title || 'New Conversation',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      conversations.push(conversation)
+      return success(conversation)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async delete(id: string): Promise<Result<void>> {
+    try {
+      conversations = conversations.filter((c) => c.id !== id)
+      conversationMessages = conversationMessages.filter(
+        (m) => m.conversationId !== id,
+      )
+      return success(undefined)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async addMessage(
+    data: CreateMessageInput,
+  ): Promise<Result<ConversationMessage>> {
+    try {
+      const conversation = conversations.find(
+        (c) => c.id === data.conversationId,
+      )
+      if (!conversation) {
+        return failure(
+          new Error(`Conversation with id ${data.conversationId} not found`),
+        )
+      }
+
+      const message: ConversationMessage = {
+        id: generateId(),
+        conversationId: data.conversationId,
+        role: data.role,
+        content: data.content,
+        createdAt: new Date(),
+      }
+      conversationMessages.push(message)
+
+      conversation.updatedAt = new Date()
+
+      const messages = conversationMessages.filter(
+        (m) => m.conversationId === data.conversationId,
+      )
+      if (messages.length > MAX_MESSAGES_PER_CONVERSATION) {
+        const oldestMessages = messages.slice(
+          0,
+          messages.length - MAX_MESSAGES_PER_CONVERSATION,
+        )
+        for (const oldMsg of oldestMessages) {
+          conversationMessages = conversationMessages.filter(
+            (m) => m.id !== oldMsg.id,
+          )
+        }
+      }
+
+      return success(message)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+
+  async getMessages(
+    conversationId: string,
+  ): Promise<Result<ConversationMessage[]>> {
+    try {
+      const messages = conversationMessages
+        .filter((m) => m.conversationId === conversationId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      return success(messages)
+    } catch (error) {
+      return failure(
+        error instanceof Error ? error : new Error('Unknown error'),
+      )
+    }
+  }
+}
+
 // Create and export repositories
 export const createInMemoryRepositories = (): Repositories => {
   return {
@@ -1146,5 +1276,6 @@ export const createInMemoryRepositories = (): Repositories => {
     notifications: new InMemoryNotificationRepository(),
     comments: new InMemoryCommentRepository(),
     teams: new InMemoryTeamRepository(),
+    conversations: new InMemoryConversationRepository(),
   }
 }

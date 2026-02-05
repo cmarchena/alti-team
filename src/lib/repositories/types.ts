@@ -398,6 +398,42 @@ export interface CommentRepository {
   delete(id: string): Promise<Result<void>>
 }
 
+export interface Conversation {
+  id: string
+  userId: string
+  title: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ConversationMessage {
+  id: string
+  conversationId: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: Date
+}
+
+export interface CreateConversationInput {
+  userId: string
+  title?: string
+}
+
+export interface CreateMessageInput {
+  conversationId: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ConversationRepository {
+  findById(id: string): Promise<Result<Conversation | null>>
+  findByUserId(userId: string): Promise<Result<Conversation[]>>
+  create(data: CreateConversationInput): Promise<Result<Conversation>>
+  delete(id: string): Promise<Result<void>>
+  addMessage(data: CreateMessageInput): Promise<Result<ConversationMessage>>
+  getMessages(conversationId: string): Promise<Result<ConversationMessage[]>>
+}
+
 export interface Repositories {
   organizations: OrganizationRepository
   users: UserRepository
@@ -411,4 +447,5 @@ export interface Repositories {
   notifications: NotificationRepository
   comments: CommentRepository
   teams: TeamRepository
+  conversations: ConversationRepository
 }

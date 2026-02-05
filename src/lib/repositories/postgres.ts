@@ -47,6 +47,11 @@ import {
   UpdateTeamInput,
   TeamRepository,
   Repositories,
+  Conversation,
+  CreateConversationInput,
+  ConversationRepository,
+  CreateMessageInput,
+  ConversationMessage,
 } from './types'
 import { Result, success, failure } from '../result'
 
@@ -1398,6 +1403,48 @@ class PostgresTeamRepository implements TeamRepository {
   }
 }
 
+// Postgres Conversation Repository (placeholder for future implementation)
+class PostgresConversationRepository implements ConversationRepository {
+  async findById(id: string): Promise<Result<Conversation | null>> {
+    return Promise.resolve(success(null))
+  }
+  async findByUserId(userId: string): Promise<Result<Conversation[]>> {
+    return Promise.resolve(success([]))
+  }
+  async create(data: CreateConversationInput): Promise<Result<Conversation>> {
+    return Promise.resolve(
+      success({
+        id: '',
+        userId: data.userId,
+        title: data.title || 'New Conversation',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    )
+  }
+  async delete(id: string): Promise<Result<void>> {
+    return Promise.resolve(success(undefined))
+  }
+  async addMessage(
+    data: CreateMessageInput,
+  ): Promise<Result<ConversationMessage>> {
+    return Promise.resolve(
+      success({
+        id: '',
+        conversationId: data.conversationId,
+        role: data.role,
+        content: data.content,
+        createdAt: new Date(),
+      }),
+    )
+  }
+  async getMessages(
+    conversationId: string,
+  ): Promise<Result<ConversationMessage[]>> {
+    return Promise.resolve(success([]))
+  }
+}
+
 // Create and export repositories
 export const createPostgresRepositories = (): Repositories => {
   return {
@@ -1413,5 +1460,6 @@ export const createPostgresRepositories = (): Repositories => {
     notifications: new PostgresNotificationRepository(),
     comments: new PostgresCommentRepository(),
     teams: new PostgresTeamRepository(),
+    conversations: new PostgresConversationRepository(),
   }
 }
