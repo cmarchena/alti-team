@@ -1295,9 +1295,9 @@
         "id": "docs-001",
         "title": "MCP Server Documentation",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "Document all MCP tools and APIs",
-        "implementation": "Create docs/mcp-server.md with tool catalog, parameter descriptions, examples, integration guide",
+        "implementation": "Created docs/mcp-server.md with tool catalog, parameter descriptions, examples, integration guide",
         "dependencies": ["server-001"],
         "deliverables": [
           "Tool reference documentation",
