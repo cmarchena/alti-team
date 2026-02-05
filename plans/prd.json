@@ -934,7 +934,7 @@
         "id": "client-002",
         "title": "MCP Client Integration",
         "priority": "critical",
-        "status": "todo",
+        "status": "done",
         "description": "Connect chat UI to MCP server for tool calling",
         "implementation": "Implement MCP client connection, handle tool calls from Claude, execute tools via MCP server, display tool results in chat",
         "dependencies": ["client-001", "server-001"],

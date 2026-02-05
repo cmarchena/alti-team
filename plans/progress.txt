@@ -350,3 +350,34 @@
 - Learning: Streaming responses provide a better user experience by showing partial results as they arrive
 - Learning: NextAuth session validation should be done early in API routes to prevent unauthorized access
 - Note: TypeScript compilation successful with npx tsc --noEmit
+
+## Iteration 23: MCP Client Integration (client-002)
+- Implemented MCP Client Integration feature connecting chat UI to MCP server for tool calling
+- Created src/lib/mcp/client.ts with MCP process client:
+  - MCPProcessClient class manages spawning and communicating with MCP server process
+  - Supports listing available tools and calling tools via JSON-RPC over stdio
+  - Tool results are returned in structured format with content arrays
+  - Implemented caching for tools to avoid repeated lookups
+- Enhanced /api/chat route with MCP tool integration:
+  - Claude now receives tool definitions for all available MCP tools
+  - Handles tool use blocks from Claude responses
+  - Executes tools via MCP server and returns results to Claude
+  - Provides final helpful response incorporating tool results
+  - Full streaming support with real-time tool execution feedback
+- Key technical decisions:
+  - Used child_process.spawn to run MCP server as separate process
+  - JSON-RPC protocol over stdio for client-server communication
+  - Separate message buffer for handling partial JSON messages
+  - Promise-based request/response mapping with unique IDs
+- MCP tools available for Claude include:
+  - User management (get_my_profile, update_my_profile, search_users)
+  - Organization CRUD (create_organization, get_organization, list_my_organizations, etc.)
+  - Project CRUD and templates (create_project, list_projects, get_project_analytics, etc.)
+  - Task CRUD and comments (create_task, list_tasks, add_task_comment, etc.)
+  - Team and department management
+  - Resource management
+  - Member invitations and role management
+  - Process management and execution
+  - Global search and notifications
+- TypeScript compilation successful with npx tsc --noEmit
+- Note: Many MCP server tools were already implemented but PRD status was out of sync
