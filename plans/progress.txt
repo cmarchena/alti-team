@@ -423,3 +423,16 @@
 - Decision: Used isOwner validation which already existed in auth.ts
 - Learning: Pattern continues - MCP tools were partially implemented but PRD status was out of sync
 - Note: TypeScript compilation successful with npx tsc --noEmit
+
+## Iteration 27: Organization Dashboard Tools (org-mcp-002)
+- Discovered that org-mcp-002 (Organization Dashboard Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/organization.ts with:
+  - get_organization_dashboard: Returns dashboard data with org info, project/member/department counts, project status breakdown
+  - get_organization_metrics: Returns period-based metrics (week, month, quarter) with new projects, tasks, completed tasks, and completion rate
+- Both tools include proper authentication validation via validateOrganizationAccess
+- Both tools are registered at the end of the file
+- Updated prd.json to mark org-mcp-002 as "done"
+- Decision: Noted that code was complete but PRD status was out of sync (continuing pattern)
+- Note: TypeScript compilation successful with npx tsc --noEmit
+- Note: Pre-existing lint errors in other files (not related to this feature)
+- Pattern continues: MCP tools implemented but PRD not updated to reflect completion

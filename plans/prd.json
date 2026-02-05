@@ -174,7 +174,7 @@
         "id": "org-mcp-002",
         "title": "Organization Dashboard Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Get organization overview, metrics, and activity",
         "tools": [
           {
