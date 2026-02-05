@@ -20,6 +20,7 @@ import './tools/resource.js'
 import './tools/member.js'
 import './tools/search.js'
 import './tools/notification.js'
+import './tools/reports.js'
 
 // Context type for tool handlers
 export interface MCPServerContext {
