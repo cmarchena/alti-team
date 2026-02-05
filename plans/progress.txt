@@ -436,3 +436,20 @@
 - Note: TypeScript compilation successful with npx tsc --noEmit
 - Note: Pre-existing lint errors in other files (not related to this feature)
 - Pattern continues: MCP tools implemented but PRD not updated to reflect completion
+
+## Iteration 28: Task Comment Tools (task-mcp-003)
+- Discovered that task-mcp-003 (Task Comment Tools) was already fully implemented
+- Verified implementation in src/mcp-server/tools/task.ts with:
+  - add_task_comment: Adds a comment to a task with proper authentication and access validation
+  - get_task_comments: Retrieves all comments for a task with proper authentication and access validation
+- Both tools include:
+  - User authentication validation
+  - Task existence validation
+  - Organization access validation via validateOrganizationAccess
+  - Proper error handling with descriptive messages
+  - Comment creation/retrieval via repository pattern
+- Both tools are registered at the end of the file
+- Updated prd.json to mark task-mcp-003 as "done"
+- Decision: Noted that code was complete but PRD status was out of sync (continuing pattern)
+- Note: TypeScript compilation successful with npx tsc --noEmit
+- Pattern continues: MCP tools implemented but PRD not updated to reflect completion

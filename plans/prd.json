@@ -442,7 +442,7 @@
         "id": "task-mcp-003",
         "title": "Task Comment Tools",
         "priority": "high",
-        "status": "todo",
+        "status": "done",
         "description": "Add and view task comments",
         "tools": [
           {

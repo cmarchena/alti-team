@@ -1,6 +1,11 @@
 {
   "/page": "app/page.js",
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/organizations/page": "app/organizations/page.js",
-  "/api/organizations/route": "app/api/organizations/route.js"
+  "/dashboard/page": "app/dashboard/page.js",
+  "/api/dashboard/route": "app/api/dashboard/route.js",
+  "/projects/page": "app/projects/page.js",
+  "/api/organizations/route": "app/api/organizations/route.js",
+  "/api/projects/route": "app/api/projects/route.js",
+  "/api/projects/[id]/route": "app/api/projects/[id]/route.js",
+  "/projects/[id]/page": "app/projects/[id]/page.js"
 }
