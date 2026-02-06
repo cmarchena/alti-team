@@ -1,21 +1,18 @@
 #!/bin/bash
 
-# Ralph Once - Human-in-the-loop Mode
+# Ralph Once (Goose Edition) - Human-in-the-loop Mode
 # Usage: ./plans/ralph-once.sh
 
 set -e
 
-echo "🔄 Running Ralph (single iteration)..."
+echo "🔄 Running Ralph with Goose (single iteration)..."
 echo ""
 
-# Usamos 'kilo run' y pasamos el mensaje. 
-# Nota: Kilo leerá el contexto del directorio actual automáticamente, 
-# pero nos aseguramos de mencionar los archivos en el prompt.
-
-kilo run --model kilo/minimax/minimax-m2.1:free "$(cat <<EOF
+# Usamos --text para que acepte el string del prompt directamente
+goose run --text "$(cat <<EOF
 You are working in a Ralph loop (https://ghuntley.com/ralph/).
 
-CONTEXT FILES:
+CONTEXT:
 - PRD: plans/prd.json
 - Progress: plans/progress.txt
 

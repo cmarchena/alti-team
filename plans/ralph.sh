@@ -23,12 +23,15 @@ for ((i=1; i<=MAX; i++)); do
   echo ""
   echo "========== Iteration $i/$MAX =========="
   echo ""
-  
-  kilo plans/prd.json plans/progress.txt "$PROMPT" || {
+
+  kilo run --model kilo/minimax/minimax-m2.1:free "$(cat <<EOF
+$PROMPT
+EOF
+)" || {
     echo "❌ Kilo failed at iteration $i"
     exit 1
   }
-  
+
   sleep 1
 done
 

@@ -39,8 +39,11 @@ export default function ChatPage() {
   const [streamingContent, setStreamingContent] = useState('')
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0)
+  const [isRecording, setIsRecording] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const recognitionRef = useRef<any>(null)
 
   interface SlashCommand {
     command: string
@@ -153,6 +156,51 @@ export default function ChatPage() {
       router.push('/auth/signin')
     }
   }, [status, router])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition()
+        recognitionRef.current.continuous = false
+        recognitionRef.current.interimResults = true
+        recognitionRef.current.lang = 'en-US'
+
+        recognitionRef.current.onresult = (event: any) => {
+          let transcript = ''
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript
+          }
+          setInputValue((prev) => prev + (prev ? ' ' : '') + transcript)
+        }
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error)
+          setIsRecording(false)
+          if (event.error !== 'no-speech') {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content:
+                  'Sorry, I had trouble understanding your voice. Please try again.',
+                timestamp: new Date(),
+              },
+            ])
+          }
+        }
+
+        recognitionRef.current.onend = () => {
+          setIsRecording(false)
+        }
+      } else {
+        setSpeechSupported(false)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     scrollToBottom()
@@ -304,10 +352,23 @@ export default function ChatPage() {
   const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null)
   const [workflowIsLoading, setWorkflowIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [showExportMenu, setShowExportMenu] = useState(false)
 
   const handleQuickPrompt = (prompt: string) => {
     setInputValue(prompt)
     inputRef.current?.focus()
+  }
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) return
+
+    if (isRecording) {
+      recognitionRef.current.stop()
+      setIsRecording(false)
+    } else {
+      recognitionRef.current.start()
+      setIsRecording(true)
+    }
   }
 
   const clearChat = () => {
@@ -396,6 +457,68 @@ export default function ChatPage() {
     setConversationId(null)
   }
 
+  const exportConversation = (format: 'markdown' | 'text') => {
+    let content = ''
+    const date = new Date().toLocaleDateString()
+
+    if (format === 'markdown') {
+      content = `# AltiTeam Chat Conversation\n\n`
+      content += `Exported on: ${date}\n\n`
+      content += `---\n\n`
+
+      for (const message of messages) {
+        const role = message.role === 'user' ? '**You**' : '**Assistant**'
+        const time = message.timestamp.toLocaleString()
+        content += `### ${role} - ${time}\n\n`
+        content += `${message.content}\n\n`
+        content += `---\n\n`
+      }
+    } else {
+      content = `AltiTeam Chat Conversation\n`
+      content += `Exported on: ${date}\n`
+      content += `=${'='.repeat(50)}\n\n`
+
+      for (const message of messages) {
+        const role = message.role === 'user' ? 'YOU' : 'ASSISTANT'
+        const time = message.timestamp.toLocaleString()
+        content += `[${time}] ${role}:\n`
+        content += `${message.content}\n\n`
+      }
+    }
+
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `alti-team-chat-${Date.now()}.${format === 'markdown' ? 'md' : 'txt'}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const copyConversation = () => {
+    const text = messages
+      .map((m) => {
+        const role = m.role === 'user' ? 'You' : 'Assistant'
+        return `[${m.timestamp.toLocaleTimeString()}] ${role}:\n${m.content}`
+      })
+      .join('\n\n')
+
+    navigator.clipboard.writeText(text).then(() => {
+      const copiedMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Conversation copied to clipboard!',
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, copiedMessage])
+      setTimeout(() => {
+        setMessages((prev) => prev.filter((m) => m.id !== copiedMessage.id))
+      }, 3000)
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -441,6 +564,60 @@ export default function ChatPage() {
                 </span>
               </div>
             )}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center space-x-1"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Export</span>
+              </button>
+              {showExportMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        exportConversation('markdown')
+                        setShowExportMenu(false)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Export as Markdown
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportConversation('text')
+                        setShowExportMenu(false)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Export as Text
+                    </button>
+                    <button
+                      onClick={() => {
+                        copyConversation()
+                        setShowExportMenu(false)
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Copy to Clipboard
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => signOut({ callbackUrl: '/' })}
               className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center space-x-1"
@@ -645,35 +822,74 @@ export default function ChatPage() {
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message or / for commands..."
-              className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              placeholder="Type your message, use / for commands, or click mic for voice..."
+              className="w-full px-4 py-3 pr-24 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               rows={1}
               disabled={isLoading}
             />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoading}
-              className="absolute right-2 bottom-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+            <div className="absolute right-2 bottom-2 flex items-center space-x-1">
+              {speechSupported && (
+                <button
+                  onClick={toggleVoiceInput}
+                  disabled={isLoading}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isRecording
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                  title={isRecording ? 'Stop recording' : 'Voice input'}
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading}
+                className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div className="text-center mt-2">
+          <div className="text-center mt-2 flex items-center justify-center space-x-4">
             <p className="text-xs text-gray-400">
-              Press Enter to send, Shift+Enter for new line
+              Enter to send, Shift+Enter for new line
             </p>
+            {!speechSupported && (
+              <span className="text-xs text-amber-600">
+                Voice input not supported in this browser
+              </span>
+            )}
+            {isRecording && (
+              <span className="text-xs text-red-500 flex items-center">
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-1 animate-pulse" />
+                Listening...
+              </span>
+            )}
           </div>
         </div>
       </div>

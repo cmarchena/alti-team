@@ -21,6 +21,9 @@ import './tools/member.js'
 import './tools/search.js'
 import './tools/notification.js'
 import './tools/reports.js'
+import './tools/scheduling.js'
+import './tools/integrations.js'
+import './tools/insights.js'
 
 // Context type for tool handlers
 export interface MCPServerContext {
