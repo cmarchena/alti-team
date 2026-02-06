@@ -1310,7 +1310,7 @@
         "id": "docs-002",
         "title": "Chat User Guide",
         "priority": "medium",
-        "status": "todo",
+        "status": "done",
         "description": "User documentation for chat interface",
         "implementation": "Create docs/chat-guide.md with usage examples, best practices, slash commands reference, FAQ",
         "dependencies": ["client-001"],
