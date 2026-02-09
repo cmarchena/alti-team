@@ -1,4 +1,6 @@
 import { spawn } from 'child_process'
+import path from 'path'
+import fs from 'fs'
 
 export interface MCPTool {
   name: string
@@ -24,22 +26,35 @@ class MCPProcessClient {
   >()
   private nextId = 0
   private toolsCache: MCPTool[] | null = null
+  private ready = false
+  private readyResolve: (() => void) | null = null
 
   async connect(): Promise<void> {
     if (this.process) return
 
-    this.process = spawn(
-      'node',
-      ['--loader', 'ts-node/esm', 'src/mcp-server/index.ts'],
-      {
-        cwd: process.cwd(),
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
-      },
-    )
+    const distPath = path.join(process.cwd(), 'dist/mcp-server/index.js')
+
+    if (!fs.existsSync(distPath)) {
+      console.warn('MCP server not built. Building...')
+      await this.buildMCP()
+    }
+
+    this.process = spawn('node', [distPath], {
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    })
 
     this.process.stdout?.on('data', (data) => {
-      this.handleData(data.toString())
+      const msg = data.toString()
+      this.handleData(msg)
+      if (msg.includes('"message":"Handshake complete"')) {
+        this.ready = true
+        if (this.readyResolve) {
+          this.readyResolve()
+          this.readyResolve = null
+        }
+      }
     })
 
     this.process.stderr?.on('data', (data) => {
@@ -50,15 +65,35 @@ class MCPProcessClient {
       console.error('MCP Server process error:', error)
     })
 
+    this.process.on('exit', (code) => {
+      console.error(`MCP Server exited with code ${code}`)
+      this.process = null
+      this.ready = false
+    })
+
     await new Promise<void>((resolve) => {
-      const checkReady = () => {
-        if (this.process && this.process.stdout) {
-          this.process.stdout.once('data', checkReady)
-        } else {
+      this.readyResolve = resolve
+      setTimeout(() => {
+        this.ready = true
+        resolve()
+      }, 2000)
+    })
+  }
+
+  private async buildMCP(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const build = spawn('npx', ['tsc', '-p', 'tsconfig.mcp.json'], {
+        cwd: process.cwd(),
+        stdio: 'inherit',
+      })
+
+      build.on('close', (code) => {
+        if (code === 0) {
           resolve()
+        } else {
+          reject(new Error('Failed to build MCP server'))
         }
-      }
-      checkReady()
+      })
     })
   }
 
@@ -172,6 +207,7 @@ class MCPProcessClient {
       this.process = null
     }
     this.toolsCache = null
+    this.ready = false
   }
 }
 

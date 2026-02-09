@@ -1,23 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import Anthropic from '@anthropic-ai/sdk'
-import { getMCPTools, callMCPTool, closeMCPClient } from '@/lib/mcp/client'
-import {
-  WorkflowState,
-  createWorkflowState,
-  getNextStep,
-  getStepLabel,
-  getStepPrompt,
-  isConfirmationStep,
-  formatWorkflowState,
-  mergeWorkflowData,
-  WorkflowData,
-} from '@/lib/chat/workflow-types'
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+import { getOrganizationRepository, getProjectRepository, getTaskRepository, getTeamMemberRepository } from '@/lib/repositories'
+import { isSuccess } from '@/lib/result'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -30,524 +15,369 @@ interface ChatRequest {
   conversationId?: string
 }
 
-interface WorkflowContext {
-  workflows: Map<string, WorkflowState>
+// Task-related query patterns
+const TASK_QUERY_PATTERNS = [
+  /show.*tasks?/i,
+  /my tasks/i,
+  /list.*tasks?/i,
+  /get.*tasks?/i,
+  /view.*tasks?/i,
+  /what.*tasks?/i,
+  /tasks?.*due/i,
+  /pending.*tasks?/i,
+  /^\/tasks\s*$/i,  // Explicitly match /tasks with optional trailing whitespace
+  /^\/tasks$/i,     // Also match /tasks without trailing whitespace
+]
+
+// Project-related query patterns
+const PROJECT_QUERY_PATTERNS = [
+  /show.*projects?/i,
+  /my projects?/i,
+  /list.*projects?/i,
+  /get.*projects?/i,
+  /view.*projects?/i,
+  /what.*projects?/i,
+  /\/projects\b/i,
+]
+
+// Organization-related query patterns
+const ORG_QUERY_PATTERNS = [
+  /show.*organizations?/i,
+  /my organizations?/i,
+  /list.*organizations?/i,
+  /get.*organizations?/i,
+  /view.*organizations?/i,
+  /what.*organizations?/i,
+  /\/organizations\b/i,
+  /list my org/i,
+  /my orgs?/i,
+]
+
+// Check if a message is a task-related query
+function isTaskQuery(content: string): boolean {
+  // Direct slash command match - must be first and most specific
+  if (content.trim() === '/tasks') {
+    return true
+  }
+  
+  return TASK_QUERY_PATTERNS.some(pattern => pattern.test(content))
 }
 
-const workflowContext: WorkflowContext = {
-  workflows: new Map(),
+// Check if a message is a project-related query
+function isProjectQuery(content: string): boolean {
+  // Direct slash command match - must be first and most specific
+  if (content.trim() === '/projects') {
+    return true
+  }
+  
+  return PROJECT_QUERY_PATTERNS.some(pattern => pattern.test(content))
 }
 
-function getWorkflow(conversationId: string): WorkflowState | null {
-  return workflowContext.workflows.get(conversationId) || null
+// Check if a message is an organization-related query
+function isOrgQuery(content: string): boolean {
+  return ORG_QUERY_PATTERNS.some(pattern => pattern.test(content))
 }
 
-function setWorkflow(conversationId: string, state: WorkflowState): void {
-  workflowContext.workflows.set(conversationId, state)
+// Fetch user's organizations with proper markdown formatting
+async function fetchUserOrganizations(userId: string): Promise<string> {
+  const orgRepo = getOrganizationRepository()
+
+  // Get organizations the user belongs to
+  const orgsResult = await orgRepo.findByOwnerId(userId)
+  if (!isSuccess(orgsResult) || orgsResult.data.length === 0) {
+    return '**No organizations found.**\n\nYou do not belong to any organizations yet.'
+  }
+
+  const organizations = orgsResult.data
+
+  // Format the response with proper markdown
+  let response = `## Your Organizations (${organizations.length} total)\n\n`
+
+  for (const org of organizations) {
+    response += `#### \`${org.name}\` (ID: ${org.id})\n`
+    response += `- **Created:** ${new Date(org.createdAt).toLocaleDateString()}\n`
+    response += '\n'
+  }
+
+  response += '---\n**Quick Actions:**\n'
+  response += '- View details of an organization?\n'
+  response += '- Switch focus to a different org?\n'
+  response += '- Create a new organization?\n'
+  response += '- Manage teams or projects within an org?\n'
+
+  return response
 }
 
-function clearWorkflow(conversationId: string): void {
-  workflowContext.workflows.delete(conversationId)
-}
+// Fetch user's tasks across all their organizations/projects
+async function fetchUserTasks(userId: string): Promise<string> {
+  const orgRepo = getOrganizationRepository()
+  const projectRepo = getProjectRepository()
+  const taskRepo = getTaskRepository()
 
-function isWorkflowCommand(
-  content: string,
-): { command: string; args?: string } | null {
-  const lower = content.toLowerCase().trim()
-
-  if (lower === 'yes' || lower === 'confirm' || lower === 'y') {
-    return { command: 'confirm' }
-  }
-  if (lower === 'no' || lower === 'cancel' || lower === 'n') {
-    return { command: 'cancel' }
-  }
-  if (lower === 'back' || lower === 'go back') {
-    return { command: 'back' }
-  }
-  if (lower === 'skip') {
-    return { command: 'skip' }
+  // Get organizations owned by the user
+  const orgsResult = await orgRepo.findByOwnerId(userId)
+  if (!isSuccess(orgsResult) || orgsResult.data.length === 0) {
+    return '**No organizations found.**\n\nYou do not have any organizations yet.'
   }
 
-  return null
-}
+  const allTasks: Array<{
+    title: string
+    status: string
+    priority: string
+    dueDate?: Date
+    projectName: string
+    orgName: string
+  }> = []
 
-function extractEntityTypeFromContent(content: string): string | null {
-  const lower = content.toLowerCase()
+  for (const org of orgsResult.data) {
+    // Get projects in this organization
+    const projectsResult = await projectRepo.findByOrganizationId(org.id)
+    if (!isSuccess(projectsResult)) continue
 
-  if (lower.includes('project')) return 'project'
-  if (lower.includes('task')) return 'task'
-  if (lower.includes('team')) return 'team'
-  if (lower.includes('department')) return 'department'
-  if (lower.includes('organization')) return 'organization'
-  if (lower.includes('member')) return 'member'
-  if (lower.includes('invite')) return 'invitation'
+    for (const project of projectsResult.data) {
+      // Get tasks for this project
+      const tasksResult = await taskRepo.findByProjectId(project.id)
+      if (!isSuccess(tasksResult)) continue
 
-  return null
-}
-
-function extractActionFromContent(content: string): string | null {
-  const lower = content.toLowerCase()
-
-  if (
-    lower.includes('create') ||
-    lower.includes('new') ||
-    lower.includes('add')
-  ) {
-    return 'create'
-  }
-  if (
-    lower.includes('update') ||
-    lower.includes('edit') ||
-    lower.includes('modify')
-  ) {
-    return 'update'
-  }
-  if (lower.includes('delete') || lower.includes('remove')) {
-    return 'delete'
-  }
-
-  return null
-}
-
-async function handleWorkflowStep(
-  message: string,
-  workflow: WorkflowState,
-  sessionUserId: string,
-): Promise<{ response: string; updatedWorkflow: WorkflowState | null }> {
-  const command = isWorkflowCommand(message)
-
-  if (command?.command === 'cancel') {
-    clearWorkflow(workflow.id)
-    return {
-      response: 'Workflow cancelled. How else can I help you?',
-      updatedWorkflow: null,
-    }
-  }
-
-  if (command?.command === 'back' && workflow.currentStep !== 'init') {
-    const steps = workflow.data.entityType
-      ? (workflow.data.entityType as string)
-      : 'project'
-    const allSteps = getStepLabel(steps as any).split(' ')
-    workflow.currentStep = 'init' as any
-    workflow.status = 'collecting'
-    return {
-      response: `Let's start over. ${getStepPrompt('init', steps)}`,
-      updatedWorkflow: workflow,
-    }
-  }
-
-  if (command?.command === 'skip') {
-    const nextStep = getNextStep(workflow.currentStep, workflow.entityType)
-    workflow.currentStep = nextStep
-    workflow.status = nextStep === 'executing' ? 'executing' : 'collecting'
-
-    if (isConfirmationStep(nextStep)) {
-      return {
-        response: `${getStepPrompt(nextStep, workflow.entityType)}\n\nHere are the details:\n${formatWorkflowData(workflow.data)}`,
-        updatedWorkflow: workflow,
+      for (const task of tasksResult.data) {
+        allTasks.push({
+          title: task.title,
+          status: task.status,
+          priority: task.priority,
+          dueDate: task.dueDate,
+          projectName: project.name,
+          orgName: org.name,
+        })
       }
     }
+  }
 
-    return {
-      response: getStepPrompt(nextStep, workflow.entityType),
-      updatedWorkflow: workflow,
+  if (allTasks.length === 0) {
+    return '**No tasks found.**\n\nYou do not have any tasks yet.'
+  }
+
+  // Format the response with richer markdown
+  let response = `## Your Tasks (${allTasks.length} total)\n\n`
+
+  // Group by status
+  const byStatus: Record<string, typeof allTasks> = {}
+  for (const task of allTasks) {
+    if (!byStatus[task.status]) byStatus[task.status] = []
+    byStatus[task.status].push(task)
+  }
+
+  const statusLabels: Record<string, string> = {
+    'todo': 'To Do',
+    'in-progress': 'In Progress',
+    'review': 'In Review',
+    'done': 'Completed',
+  }
+
+  for (const [status, tasks] of Object.entries(byStatus)) {
+    const label = statusLabels[status] || status
+    response += `#### ${label} (${tasks.length})\n`
+    for (const task of tasks) {
+      const dueStr = task.dueDate
+        ? ` (due: ${new Date(task.dueDate).toLocaleDateString()})`
+        : ''
+      const priorityEmoji = {
+        'low': '[Low]',
+        'medium': '[Medium]',
+        'high': '[High]',
+        'urgent': '[Urgent]',
+      }[task.priority] || ''
+      response += `- ${priorityEmoji} **${task.title}** in ${task.projectName}${dueStr}\n`
+    }
+    response += '\n'
+  }
+
+  response += '---\n**Quick Actions:**\n'
+  response += '- View details on a specific task?\n'
+  response += '- Create a new task?\n'
+  response += '- Filter tasks by priority or status?\n'
+
+  return response
+}
+
+// Fetch user's projects across all their organizations
+async function fetchUserProjects(userId: string): Promise<string> {
+  const orgRepo = getOrganizationRepository()
+  const projectRepo = getProjectRepository()
+
+  // Get organizations owned by the user
+  const orgsResult = await orgRepo.findByOwnerId(userId)
+  if (!isSuccess(orgsResult) || orgsResult.data.length === 0) {
+    return 'You do not have any organizations yet.'
+  }
+
+  interface ProjectItem {
+    id: string
+    name: string
+    description?: string
+    status: string
+  }
+
+  const projects: ProjectItem[] = []
+
+  for (const org of orgsResult.data) {
+    // Get projects in this organization
+    const projectsResult = await projectRepo.findByOrganizationId(org.id)
+    if (!isSuccess(projectsResult)) continue
+
+    for (const project of projectsResult.data) {
+      projects.push({
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        status: project.status,
+      })
     }
   }
 
-  if (isConfirmationStep(workflow.currentStep)) {
-    if (command?.command !== 'confirm') {
-      return {
-        response: 'Please answer with "yes" to confirm or "no" to cancel.',
-        updatedWorkflow: workflow,
-      }
+  if (projects.length === 0) {
+    return '**No projects found.**\n\nYou do not have any projects yet.'
+  }
+
+  // Format the response with richer markdown
+  let response = `## Your Projects (${projects.length} total)\n\n`
+
+  for (const project of projects) {
+    const statusLabel = project.status
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase())
+
+    response += `#### ${project.name} (ID: ${project.id})\n`
+    response += `- **Status:** ${statusLabel}\n`
+    if (project.description) {
+      response += `- **Description:** ${project.description}\n`
     }
-
-    workflow.currentStep = 'executing'
-    workflow.status = 'executing'
-
-    return {
-      response: await executeWorkflowAction(workflow, sessionUserId),
-      updatedWorkflow: workflow,
-    }
+    response += '\n'
   }
 
-  const fieldName = getFieldForStep(workflow.currentStep)
-  if (fieldName) {
-    workflow.data.stepData = mergeWorkflowData(
-      workflow.data.stepData as Record<string, unknown>,
-      { [fieldName]: message },
-    )
-  }
+  response += '---\n**Quick Actions:**\n'
+  response += '- Get details on a specific project?\n'
+  response += '- Create a new project?\n'
+  response += '- Manage tasks for one of these?\n'
+  response += '- Create a new project?\n'
+  response += '- Manage tasks for one of these?\n'
 
-  const nextStep = getNextStep(workflow.currentStep, workflow.entityType)
-  workflow.currentStep = nextStep
-  workflow.status = nextStep === 'executing' ? 'executing' : 'collecting'
-
-  if (isConfirmationStep(nextStep)) {
-    return {
-      response: `${getStepPrompt(nextStep, workflow.entityType)}\n\nHere are the details:\n${formatWorkflowData(workflow.data)}`,
-      updatedWorkflow: workflow,
-    }
-  }
-
-  return {
-    response: getStepPrompt(nextStep, workflow.entityType),
-    updatedWorkflow: workflow,
-  }
+  return response
 }
 
-function formatWorkflowData(data: WorkflowData): string {
-  const stepData = data.stepData as Record<string, unknown>
-  if (!stepData || Object.keys(stepData).length === 0) {
-    return 'No data collected yet.'
-  }
-
-  return Object.entries(stepData)
-    .map(([key, value]) => {
-      const label = key
-        .replace(/([A-Z])/g, ' $1')
-        .replace(/^./, (s) => s.toUpperCase())
-      return `- **${label}**: ${value}`
-    })
-    .join('\n')
-}
-
-function getFieldForStep(step: string): string | null {
-  const fieldMap: Record<string, string> = {
-    collect_name: 'name',
-    collect_description: 'description',
-    collect_assignee: 'assigneeId',
-    collect_date: 'dueDate',
-  }
-  return fieldMap[step] || null
-}
-
-async function executeWorkflowAction(
-  workflow: WorkflowState,
-  userId: string,
-): Promise<string> {
-  const { entityType, action, data } = workflow
-  const stepData = data.stepData as Record<string, unknown>
-
-  try {
-    let toolName = ''
-    const toolArgs: Record<string, unknown> = {}
-
-    switch (entityType) {
-      case 'project':
-        toolName = 'create_project'
-        toolArgs.name = stepData.name
-        if (stepData.description) toolArgs.description = stepData.description
-        break
-      case 'task':
-        toolName = 'create_task'
-        toolArgs.title = stepData.name
-        if (stepData.description) toolArgs.description = stepData.description
-        if (stepData.assigneeId) toolArgs.assigneeId = stepData.assigneeId
-        if (stepData.dueDate) toolArgs.dueDate = stepData.dueDate
-        break
-      case 'team':
-        toolName = 'create_team'
-        toolArgs.name = stepData.name
-        if (stepData.description) toolArgs.description = stepData.description
-        break
-      case 'department':
-        toolName = 'create_department'
-        toolArgs.name = stepData.name
-        if (stepData.description) toolArgs.description = stepData.description
-        break
-      case 'organization':
-        toolName = 'create_organization'
-        toolArgs.name = stepData.name
-        if (stepData.description) toolArgs.description = stepData.description
-        break
-      default:
-        return 'I apologize, but I cannot execute this type of workflow yet.'
-    }
-
-    const result = await callMCPTool(toolName, toolArgs)
-
-    const textContent = result.content
-      .filter((c) => c.type === 'text')
-      .map((c) => c.text || '')
-      .join('\n')
-
-    clearWorkflow(workflow.id)
-
-    return `Successfully created ${entityType}!\n\n${textContent}\n\nIs there anything else I can help you with?`
-  } catch (error) {
-    clearWorkflow(workflow.id)
-    return `I encountered an error while creating the ${entityType}: ${
-      error instanceof Error ? error.message : 'Unknown error'
-    }\n\nWould you like to try again?`
-  }
-}
-
-async function handleToolCalls(
-  toolCalls: Array<{ name: string; input: Record<string, unknown> }>,
-): Promise<Array<{ tool_name: string; content: string }>> {
-  const toolResults = await Promise.all(
-    toolCalls.map(async (toolCall) => {
-      const result = await callMCPTool(toolCall.name, toolCall.input)
-
-      const textContent = result.content
-        .filter((c) => c.type === 'text')
-        .map((c) => c.text || '')
-        .join('\n')
-
-      return {
-        tool_name: toolCall.name,
-        content: textContent,
-      }
-    }),
-  )
-
-  return toolResults
-}
-
-async function processMessageWithTools(
+async function callOpenRouter(
   messages: Message[],
-  sessionUserId: string,
-): Promise<{ content: string; hasToolCalls: boolean }> {
-  const tools = await getMCPTools()
+  tools: any[],
+  stream: boolean = false,
+): Promise<ReadableStream | { content: string; tool_calls: any[] }> {
+  const apiKey = process.env.OPENROUTER_API_KEY
 
-  const toolDefs = tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: {
-      type: 'object',
-      properties: tool.inputSchema.properties,
-      required: tool.inputSchema.required || [],
-    },
-  }))
-
-  const userMessages = messages.filter((m) => m.role === 'user')
-  const lastUserMessage = userMessages[userMessages.length - 1]
-
-  if (!lastUserMessage) {
-    return { content: 'No user message found', hasToolCalls: false }
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY is not configured')
   }
 
-  let hasToolCalls = false
-
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [
-        ...messages.map((m) => ({
-          role: m.role as 'user' | 'assistant',
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'AltiTeam',
+      },
+      body: JSON.stringify({
+        model: 'openrouter/free',
+        messages: messages.map((m) => ({
+          role: m.role,
           content: m.content,
         })),
-      ],
-      tools: toolDefs as any,
-    })
+        stream,
+      }),
+    },
+  )
 
-    const contentBlocks = response.content
-    let assistantText = ''
-
-    const toolUseBlocks = contentBlocks.filter((b) => b.type === 'tool_use')
-    const textBlocks = contentBlocks.filter((b) => b.type === 'text')
-
-    if (textBlocks.length > 0) {
-      assistantText = textBlocks
-        .map((b) => ('text' in b ? b.text : ''))
-        .join('\n')
-    }
-
-    if (toolUseBlocks.length > 0) {
-      hasToolCalls = true
-
-      const toolCalls = toolUseBlocks.map((block) => ({
-        name: block.name,
-        input: block.input as Record<string, unknown>,
-      }))
-
-      const toolResults = await handleToolCalls(toolCalls)
-
-      const toolResultMessage = toolResults
-        .map((r) => `[Tool: ${r.tool_name}]\n${r.content}`)
-        .join('\n\n')
-
-      const continuationResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        messages: [
-          ...messages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-          {
-            role: 'assistant',
-            content: assistantText,
-          },
-          {
-            role: 'user',
-            content: `Here are the results from the tools I called:\n\n${toolResultMessage}\n\nPlease provide a helpful response based on these results.`,
-          },
-        ],
-        tools: toolDefs as any,
-      })
-
-      const continuationText = continuationResponse.content
-        .filter((b) => b.type === 'text')
-        .map((b) => ('text' in b ? b.text : ''))
-        .join('\n')
-
-      assistantText = continuationText
-    }
-
-    return { content: assistantText, hasToolCalls }
-  } catch (error) {
-    console.error('Chat with tools error:', error)
-    throw error
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OpenRouter API error: ${error}`)
   }
-}
 
-async function processStreamingMessage(
-  messages: Message[],
-  conversationId?: string,
-): Promise<ReadableStream> {
-  const encoder = new TextEncoder()
-
-  const workflow = conversationId ? getWorkflow(conversationId) : null
-  const lastUserMessage = messages[messages.length - 1]
-
-  if (workflow && lastUserMessage?.role === 'user') {
-    const { response, updatedWorkflow } = await handleWorkflowStep(
-      lastUserMessage.content,
-      workflow,
-      'user',
-    )
-
-    if (updatedWorkflow && conversationId) {
-      setWorkflow(conversationId, updatedWorkflow)
-    }
+  if (stream) {
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
 
     return new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(response))
+      async start(controller) {
+        const reader = response.body?.getReader()
+        if (!reader) {
+          controller.close()
+          return
+        }
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              if (data === '[DONE]') continue
+
+              try {
+                const parsed = JSON.parse(data)
+                const content =
+                  parsed.choices?.[0]?.delta?.content ||
+                  parsed.choices?.[0]?.message?.content ||
+                  ''
+                if (content) {
+                  controller.enqueue(encoder.encode(content))
+                }
+              } catch {
+                // Ignore parsing errors
+              }
+            }
+          }
+        }
+
         controller.close()
       },
     })
   }
 
-  if (lastUserMessage?.role === 'user' && !workflow && conversationId) {
-    const content = lastUserMessage.content.toLowerCase()
+  const result = await response.json()
 
-    const entityType = extractEntityTypeFromContent(content)
-    const action = extractActionFromContent(content)
-
-    if (entityType && action === 'create') {
-      const newWorkflow = createWorkflowState(
-        conversationId,
-        entityType,
-        action,
-      )
-      setWorkflow(conversationId, newWorkflow)
-
-      return new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(getStepPrompt('init', entityType)))
-          controller.enqueue(encoder.encode('\n\n'))
-          controller.enqueue(
-            encoder.encode(getStepPrompt('collect_name', entityType)),
-          )
-          controller.close()
-        },
-      })
-    }
+  return {
+    content: result.choices?.[0]?.message?.content || '',
+    tool_calls: result.choices?.[0]?.message?.tool_calls || [],
   }
+}
+
+async function processStreamingMessage(
+  messages: Message[],
+): Promise<ReadableStream> {
+  const encoder = new TextEncoder()
 
   return new ReadableStream({
     async start(controller) {
       try {
-        const tools = await getMCPTools()
+        const tools: any[] = []
 
-        const toolDefs = tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: {
-            type: 'object',
-            properties: tool.inputSchema.properties,
-            required: tool.inputSchema.required || [],
-          },
-        }))
+        const stream = (await callOpenRouter(
+          messages,
+          tools,
+          true,
+        )) as ReadableStream
 
-        const stream = await anthropic.messages.stream({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4096,
-          messages: messages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          })),
-          tools: toolDefs as any,
-        })
+        const reader = stream.getReader()
+        const decoder = new TextDecoder()
 
-        let assistantContent = ''
-        let hasToolUse = false
-        let toolUseData: Array<{
-          name: string
-          input: Record<string, unknown>
-        }> = []
-
-        for await (const event of stream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            const text = event.delta.text
-            assistantContent += text
-            controller.enqueue(encoder.encode(text))
-          } else if (
-            event.type === 'content_block_start' &&
-            event.content_block.type === 'tool_use'
-          ) {
-            hasToolUse = true
-            toolUseData.push({
-              name: event.content_block.name,
-              input: event.content_block.input as Record<string, unknown>,
-            })
-          }
-        }
-
-        if (hasToolUse && toolUseData.length > 0) {
-          controller.enqueue(encoder.encode('\n\n[Processing tool calls...]\n'))
-
-          const toolResults = await handleToolCalls(toolUseData)
-
-          const toolResultMessage = toolResults
-            .map((r) => `[Tool: ${r.tool_name}]\n${r.content}`)
-            .join('\n\n')
-
-          controller.enqueue(encoder.encode(toolResultMessage + '\n\n'))
-
-          const continuationStream = await anthropic.messages.stream({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
-            messages: [
-              ...messages.map((m) => ({
-                role: m.role as 'user' | 'assistant',
-                content: m.content,
-              })),
-              { role: 'assistant', content: assistantContent },
-              {
-                role: 'user',
-                content: `Here are the results from the tools I called:\n\n${toolResultMessage}\n\nPlease provide a helpful response based on these results.`,
-              },
-            ],
-            tools: toolDefs as any,
-          })
-
-          for await (const event of continuationStream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
-            ) {
-              controller.enqueue(encoder.encode(event.delta.text))
-            }
-          }
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          controller.enqueue(value)
         }
 
         controller.close()
@@ -577,30 +407,115 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY is not configured' },
-        { status: 500 },
-      )
+    // Check if the latest user message is a task, project, or org query
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+    const shouldFetchTasks = lastUserMessage && isTaskQuery(lastUserMessage.content)
+    const shouldFetchProjects = lastUserMessage && isProjectQuery(lastUserMessage.content)
+    const shouldFetchOrgs = lastUserMessage && isOrgQuery(lastUserMessage.content)
+
+    if (shouldFetchTasks && !stream) {
+      // For non-streaming, return tasks as text
+      const tasksResponse = await fetchUserTasks(session.user.id)
+      return NextResponse.json({ message: tasksResponse })
     }
 
-    if (stream) {
-      const conversationId = body.conversationId || `conv-${Date.now()}`
-      const readableStream = await processStreamingMessage(
-        messages,
-        conversationId,
-      )
+    if (shouldFetchTasks && stream) {
+      // For streaming, create a stream that returns the tasks text
+      const tasksResponse = await fetchUserTasks(session.user.id)
+      const encoder = new TextEncoder()
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          controller.enqueue(encoder.encode(tasksResponse))
+          controller.close()
+        },
+      })
 
       return new Response(readableStream, {
         headers: {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
+          'Connection': 'keep-alive',
         },
       })
     }
 
-    const result = await processMessageWithTools(messages, session.user.id)
+    if (shouldFetchOrgs && !stream) {
+      // For non-streaming, return organizations as text
+      const orgsResponse = await fetchUserOrganizations(session.user.id)
+      return NextResponse.json({ message: orgsResponse })
+    }
+
+    if (shouldFetchOrgs && stream) {
+      // For streaming, create a stream that returns the organizations text
+      const orgsResponse = await fetchUserOrganizations(session.user.id)
+      const encoder = new TextEncoder()
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          controller.enqueue(encoder.encode(orgsResponse))
+          controller.close()
+        },
+      })
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      })
+    }
+
+    if (shouldFetchProjects && !stream) {
+      // For non-streaming, return projects as text
+      const projectsResponse = await fetchUserProjects(session.user.id)
+      return NextResponse.json({ message: projectsResponse })
+    }
+
+    if (shouldFetchProjects && stream) {
+      // For streaming, create a stream that returns the projects text
+      const projectsResponse = await fetchUserProjects(session.user.id)
+      const encoder = new TextEncoder()
+
+      const readableStream = new ReadableStream({
+        async start(controller) {
+          controller.enqueue(encoder.encode(projectsResponse))
+          controller.close()
+        },
+      })
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      })
+    }
+
+    if (!process.env.OPENROUTER_API_KEY) {
+      return NextResponse.json(
+        { error: 'OPENROUTER_API_KEY is not configured' },
+        { status: 500 },
+      )
+    }
+
+    if (stream) {
+      const readableStream = await processStreamingMessage(messages)
+
+      return new Response(readableStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      })
+    }
+
+    const result = (await callOpenRouter(messages, [], false)) as {
+      content: string
+    }
 
     return NextResponse.json({ message: result.content })
   } catch (error) {
@@ -611,13 +526,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
-process.on('SIGTERM', async () => {
-  await closeMCPClient()
-  process.exit(0)
-})
-
-process.on('SIGINT', async () => {
-  await closeMCPClient()
-  process.exit(0)
-})

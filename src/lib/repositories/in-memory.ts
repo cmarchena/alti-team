@@ -54,21 +54,31 @@ import {
 } from './types'
 import { Result, success, failure, isSuccess, isFailure } from '../result'
 
-// In-memory storage
-let organizations: Organization[] = []
-let users: User[] = []
-let departments: Department[] = []
-let projects: Project[] = []
-let tasks: Task[] = []
-let resources: Resource[] = []
-let teamMembers: TeamMember[] = []
-let invitations: Invitation[] = []
-let processes: Process[] = []
-let notifications: Notification[] = []
-let comments: Comment[] = []
-let teams: Team[] = []
-let conversations: Conversation[] = []
-let conversationMessages: ConversationMessage[] = []
+// Use globalThis to persist data across Next.js hot-reloads
+const globalObj = globalThis as Record<string, unknown>
+const getGlobalArray = <T>(key: string): T[] => {
+  const globalKey = `altiteam:${key}`
+  if (!globalObj[globalKey]) {
+    globalObj[globalKey] = []
+  }
+  return globalObj[globalKey] as T[]
+}
+
+// In-memory storage (persisted in globalThis to survive hot-reloads)
+let organizations = getGlobalArray<Organization>('organizations')
+let users = getGlobalArray<User>('users')
+let departments = getGlobalArray<Department>('departments')
+let projects = getGlobalArray<Project>('projects')
+let tasks = getGlobalArray<Task>('tasks')
+let resources = getGlobalArray<Resource>('resources')
+let teamMembers = getGlobalArray<TeamMember>('teamMembers')
+let invitations = getGlobalArray<Invitation>('invitations')
+let processes = getGlobalArray<Process>('processes')
+let notifications = getGlobalArray<Notification>('notifications')
+let comments = getGlobalArray<Comment>('comments')
+let teams = getGlobalArray<Team>('teams')
+let conversations = getGlobalArray<Conversation>('conversations')
+let conversationMessages = getGlobalArray<ConversationMessage>('conversationMessages')
 
 const MAX_MESSAGES_PER_CONVERSATION = 50
 

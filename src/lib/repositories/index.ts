@@ -1,14 +1,15 @@
-import { createInMemoryRepositories } from "./in-memory"
-import { createPostgresRepositories } from "./postgres"
-import { Repositories } from "./types"
+import { createInMemoryRepositories } from './in-memory'
+import { createPostgresRepositories } from './postgres'
+import { Repositories } from './types'
 
 // Factory function that switches between in-memory and PostgreSQL based on environment
 let repositories: Repositories | null = null
 
 export const getRepositories = (): Repositories => {
   if (!repositories) {
-    const usePostgres = process.env.DATABASE_URL && process.env.NODE_ENV === 'production'
-    
+    const usePostgres =
+      process.env.USE_POSTGRES === 'true' || process.env.DATABASE_URL
+
     if (usePostgres) {
       console.log('Using PostgreSQL repositories')
       repositories = createPostgresRepositories()

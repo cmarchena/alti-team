@@ -9,7 +9,9 @@ interface Task extends Record<string, unknown> {
   status: string
   priority: string
   projectId?: string
+  projectName?: string
   assigneeId?: string
+  assigneeName?: string
   dueDate?: string
 }
 
@@ -85,6 +87,16 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800',
 }
 
+function getStatusColor(status: string): string {
+  const normalizedStatus = status.toLowerCase().replace(/_/g, '-')
+  return statusColors[normalizedStatus] || 'bg-gray-100 text-gray-800'
+}
+
+function getPriorityColor(priority: string): string {
+  const normalizedPriority = priority.toLowerCase()
+  return priorityColors[normalizedPriority] || 'bg-gray-100 text-gray-800'
+}
+
 function getStatusLabel(status: string): string {
   return status
     .replace(/_/g, ' ')
@@ -93,7 +105,7 @@ function getStatusLabel(status: string): string {
 }
 
 function getPriorityLabel(priority: string): string {
-  return priority.charAt(0).toUpperCase() + priority.slice(1)
+  return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
 }
 
 function TaskCard({ task }: { task: Task }) {
@@ -106,12 +118,12 @@ function TaskCard({ task }: { task: Task }) {
           <div className="flex items-center gap-2 mb-1">
             <h4 className="font-medium text-gray-900">{task.title}</h4>
             <span
-              className={`text-xs px-2 py-0.5 rounded-full ${priorityColors[task.priority] || 'bg-gray-100 text-gray-800'}`}
+              className={`text-xs px-2 py-0.5 rounded-full ${getPriorityColor(task.priority)}`}
             >
               {getPriorityLabel(task.priority)}
             </span>
             <span
-              className={`text-xs px-2 py-0.5 rounded-full ${statusColors[task.status] || 'bg-gray-100 text-gray-800'}`}
+              className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(task.status)}`}
             >
               {getStatusLabel(task.status)}
             </span>
@@ -121,8 +133,8 @@ function TaskCard({ task }: { task: Task }) {
           )}
           {expanded && (
             <div className="text-xs text-gray-500 space-y-1 mt-2 pt-2 border-t border-gray-100">
-              {task.projectId && <p>Project ID: {task.projectId}</p>}
-              {task.assigneeId && <p>Assignee ID: {task.assigneeId}</p>}
+              {task.projectName && <p>Project: {task.projectName}</p>}
+              {task.assigneeName && <p>Assignee: {task.assigneeName}</p>}
               {task.dueDate && (
                 <p>Due: {new Date(task.dueDate).toLocaleDateString()}</p>
               )}
@@ -368,6 +380,40 @@ function SimpleTable({ data }: { data: Record<string, string>[] }) {
 }
 
 function MarkdownContent({ content }: { content: string }) {
+  // Helper function to parse inline markdown (bold, italic, etc.)
+  function parseInline(text: string): JSX.Element[] {
+    const parts: { text: string; bold: boolean }[] = []
+    let currentText = text
+    const boldRegex = /\*\*(.+?)\*\*/g
+    let lastIndex = 0
+    let match
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push({ text: text.slice(lastIndex, match.index), bold: false })
+      }
+      // Add the bold text
+      parts.push({ text: match[1], bold: true })
+      lastIndex = boldRegex.lastIndex
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({ text: text.slice(lastIndex), bold: false })
+    }
+
+    if (parts.length === 0) {
+      return [<span key={text}>{text}</span>]
+    }
+
+    return parts.map((part, i) => (
+      <span key={i} className={part.bold ? 'font-semibold' : ''}>
+        {part.text}
+      </span>
+    ))
+  }
+
   const lines = content.split('\n')
   const elements: JSX.Element[] = []
   let i = 0
@@ -387,6 +433,14 @@ function MarkdownContent({ content }: { content: string }) {
           {line.slice(4)}
         </h4>,
       )
+    } else if (line.startsWith('#### ')) {
+      elements.push(
+        <h4 key={i} className="text-sm font-medium text-gray-900 mt-3 mb-1">
+          {line.slice(5)}
+        </h4>,
+      )
+    } else if (line.startsWith('---')) {
+      elements.push(<hr key={i} className="my-4 border-gray-200" />)
     } else if (line.startsWith('- ')) {
       let j = i
       const items: string[] = []
@@ -398,7 +452,7 @@ function MarkdownContent({ content }: { content: string }) {
         <ul key={i} className="list-disc list-inside my-2 space-y-1">
           {items.map((item, k) => (
             <li key={k} className="text-gray-700">
-              {item}
+              {parseInline(item)}
             </li>
           ))}
         </ul>,
@@ -415,37 +469,31 @@ function MarkdownContent({ content }: { content: string }) {
         <ol key={i} className="list-decimal list-inside my-2 space-y-1">
           {items.map((item, k) => (
             <li key={k} className="text-gray-700">
-              {item}
+              {parseInline(item)}
             </li>
           ))}
         </ol>,
       )
       i = j - 1
     } else if (line.startsWith('**') && line.endsWith('**')) {
+      // Render bold text properly
+      const text = line.slice(2, -2)
       elements.push(
-        <p key={i} className="font-semibold text-gray-900 my-2">
-          {line.slice(2, -2)}
+        <p key={i} className="text-gray-900 my-2">
+          {parseInline(text)}
         </p>,
       )
     } else if (line.includes('**')) {
-      const parts = line.split('**')
+      // Render inline bold text properly
       elements.push(
         <p key={i} className="text-gray-700 my-1">
-          {parts.map((part, j) =>
-            j % 2 === 1 ? (
-              <strong key={j} className="font-semibold">
-                {part}
-              </strong>
-            ) : (
-              part
-            ),
-          )}
+          {parseInline(line)}
         </p>,
       )
     } else if (line.trim()) {
       elements.push(
         <p key={i} className="text-gray-700 my-1">
-          {line}
+          {parseInline(line)}
         </p>,
       )
     }

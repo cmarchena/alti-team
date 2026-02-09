@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "nextauth"
+import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getInvitationRepository, getOrganizationRepository, getTeamMemberRepository } from "@/lib/repositories"
 import { isSuccess, isFailure } from "@/lib/result"

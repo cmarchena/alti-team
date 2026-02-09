@@ -126,10 +126,10 @@ export default function ChatPage() {
         setMessages(initialMessages)
         break
       case 'tasks':
-        setInputValue('Show me my tasks')
+        setInputValue('/tasks')
         break
       case 'projects':
-        setInputValue('Show me my projects')
+        setInputValue('/projects')
         break
       case 'organizations':
         setInputValue('List my organizations')

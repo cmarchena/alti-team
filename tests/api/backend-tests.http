@@ -1,0 +1,142 @@
+################################################################################
+# AltiTeam Backend API Tests (Manual Testing with VS Code REST Client)
+#
+# ⚠️  NOTE: For automated testing, use Jest instead:
+#    pnpm test -- src/lib/repositories/__tests__/api-flow.integration.test.ts
+#
+# The HTTP tests below require running in sequence without server restart.
+# Due to Next.js hot-reloading, the in-memory database may reset between requests.
+#
+# SEQUENCE FOR MANUAL TESTING:
+# 1. Start server: pnpm dev (uses in-memory repository by default)
+# 2. Execute AUTH-001 to register a test user
+# 3. Execute AUTH-002 and copy the X-Session-Token from response headers
+# 4. Replace @SESSION_TOKEN below with the actual token from step 3
+# 5. Execute ORG-001 and copy the organization.id from response
+# 6. Replace ORGANIZATION_ID below with the actual organization ID
+# 7. Execute PROJ-001 and copy the project.id from response
+# 8. Replace PROJECT_ID below with the actual project ID
+# 9. Execute remaining tests
+################################################################################
+
+@BASE_URL = http://localhost:3002
+@API_URL = {{BASE_URL}}/api
+
+################################################################################
+# AUTHENTICATION TESTS
+################################################################################
+
+### AUTH-001: Register new user (execute first to create test user)
+POST {{API_URL}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "QA Test User",
+  "email": "qa.test@altiteam.com",
+  "password": "TestPassword123!"
+}
+
+### AUTH-002: Login and get session token
+# After registering, login to get the token
+# IMPORTANT: Copy the X-Session-Token from response headers and update @SESSION_TOKEN above
+POST {{API_URL}}/auth/test-login
+Content-Type: application/json
+
+{
+  "email": "qa.test@altiteam.com",
+  "password": "TestPassword123!"
+}
+####
+# IMPORTANT: Replace with actual token from AUTH-002 X-Session-Token header
+# Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJidWJiZXIiLCJlbWFpbCI6InFhLnRlc3RAYWx0aXRlYW0uY29tIn0.example
+@SESSION_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMWJocTR2Y3QiLCJlbWFpbCI6InFhLnRlc3RAYWx0aXRlYW0uY29tIiwibmFtZSI6IlVwZGF0ZWQgTmFtZSIsImlhdCI6MTc3MDQ3OTM5MywiZXhwIjoxNzcxMDg0MTkzfQ.UeDyOSmeCD8L2__joHQI4ao7f7A6Euw9qyabQaphno0
+################################################################################
+# USER MANAGEMENT TESTS
+################################################################################
+
+### USER-001: Get current user profile
+GET {{API_URL}}/users/me
+Authorization: Bearer {{SESSION_TOKEN}}
+
+### USER-002: Update user profile
+PATCH {{API_URL}}/users/me
+Authorization: Bearer {{SESSION_TOKEN}}
+Content-Type: application/json
+
+{
+  "name": "Updated Name"
+}
+
+################################################################################
+# ORGANIZATION TESTS
+################################################################################
+
+### ORG-001: Create organization
+POST {{API_URL}}/organizations
+Authorization: Bearer {{SESSION_TOKEN}}
+Content-Type: application/json
+
+{
+  "name": "QA Org",
+  "description": "Test organization via API"
+}
+
+### ORG-002: List organizations
+GET {{API_URL}}/organizations
+Authorization: Bearer {{SESSION_TOKEN}}
+####
+# IMPORTANT: Replace with actual organization ID from ORG-001 response
+# Example: "abc123xyz"
+@ORGANIZATION_ID = 9ttn0eaev
+################################################################################
+# PROJECT TESTS
+################################################################################
+
+### PROJ-001: Create project
+# IMPORTANT: Replace @ORGANIZATION_ID above with the actual ID from ORG-001 response
+POST {{API_URL}}/projects
+Authorization: Bearer {{SESSION_TOKEN}}
+Content-Type: application/json
+
+{
+  "name": "QA Project",
+  "description": "Test project via API",
+  "organizationId": "{{ORGANIZATION_ID}}",
+  "status": "active"
+}
+
+### PROJ-002: List projects by organization
+GET {{API_URL}}/projects?organizationId={{ORGANIZATION_ID}}
+Authorization: Bearer {{SESSION_TOKEN}}
+####
+# IMPORTANT: Replace with actual project ID from PROJ-001 response
+# Example: "xyz789abc"
+@PROJECT_ID = pk7vut4wk
+
+################################################################################
+# TASK TESTS
+################################################################################
+
+### TASK-001: Create task
+# IMPORTANT: Replace @PROJECT_ID above with the actual ID from PROJ-001 response
+POST {{API_URL}}/tasks
+Authorization: Bearer {{SESSION_TOKEN}}
+Content-Type: application/json
+
+{
+  "title": "QA Task",
+  "description": "Test task via API",
+  "projectId": "{{PROJECT_ID}}",
+  "priority": "high"
+}
+
+### TASK-002: List tasks by project
+GET {{API_URL}}/tasks?projectId={{PROJECT_ID}}
+Authorization: Bearer {{SESSION_TOKEN}}
+
+################################################################################
+# HEALTH CHECK
+################################################################################
+
+### HEALTH-001: API health check
+GET {{API_URL}}/health

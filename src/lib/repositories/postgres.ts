@@ -66,7 +66,8 @@ const pool = new Pool({
 const toCamelCase = (row: Record<string, unknown>): Record<string, unknown> => {
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(row)) {
-    const camelKey = key.replace(/_([a-z])/g, (_, letter) =>
+    // Match underscore followed by any letter (upper or lower), then capitalize that letter
+    const camelKey = key.replace(/_([a-zA-Z])/g, (_, letter) =>
       letter.toUpperCase(),
     )
     result[camelKey] = value
@@ -420,7 +421,8 @@ class PostgresProjectRepository implements ProjectRepository {
       const result = await pool.query('SELECT * FROM projects WHERE id = $1', [
         id,
       ])
-      return success(result.rows[0] || null)
+      if (result.rows.length === 0) return success(null)
+      return success(toCamelCase(result.rows[0]) as unknown as Project)
     } catch (error) {
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),
@@ -530,9 +532,13 @@ class PostgresProjectRepository implements ProjectRepository {
 class PostgresTaskRepository implements TaskRepository {
   async findById(id: string): Promise<Result<Task | null>> {
     try {
+      console.log('DB Query: Looking for task with id:', id)
       const result = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
-      return success(result.rows[0] || null)
+      console.log('DB Query result:', result.rows.length, 'rows')
+      if (result.rows.length === 0) return success(null)
+      return success(toCamelCase(result.rows[0]) as unknown as Task)
     } catch (error) {
+      console.error('DB Error finding task:', error)
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),
       )
@@ -763,7 +769,8 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
         'SELECT * FROM team_members WHERE id = $1',
         [id],
       )
-      return success(result.rows[0] || null)
+      if (result.rows.length === 0) return success(null)
+      return success(toCamelCase(result.rows[0]) as unknown as TeamMember)
     } catch (error) {
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),

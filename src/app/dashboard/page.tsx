@@ -1,8 +1,9 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useSession, signOut } from 'next-auth/react'
 
 interface DashboardMetrics {
   totalProjects: number
@@ -56,27 +57,36 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchDashboardData()
+    }
+  }, [status])
 
   const fetchDashboardData = async () => {
     try {
-      const res = await fetch("/api/dashboard")
+      const res = await fetch('/api/dashboard')
       if (res.ok) {
         const result = await res.json()
         setData(result)
       } else if (res.status === 401) {
-        router.push("/auth/signin")
+        router.push('/auth/signin')
       } else {
-        setError("Failed to load dashboard data")
+        setError('Failed to load dashboard data')
       }
     } catch (err) {
-      setError("An error occurred while loading dashboard data")
+      setError('An error occurred while loading dashboard data')
     } finally {
       setLoading(false)
     }
@@ -84,33 +94,33 @@ export default function DashboardPage() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      PLANNING: "bg-gray-100 text-gray-800",
-      IN_PROGRESS: "bg-blue-100 text-blue-800",
-      ON_HOLD: "bg-yellow-100 text-yellow-800",
-      COMPLETED: "bg-green-100 text-green-800",
-      CANCELLED: "bg-red-100 text-red-800",
-      TODO: "bg-gray-100 text-gray-800",
-      IN_REVIEW: "bg-purple-100 text-purple-800",
-      DONE: "bg-green-100 text-green-800",
+      PLANNING: 'bg-gray-100 text-gray-800',
+      IN_PROGRESS: 'bg-blue-100 text-blue-800',
+      ON_HOLD: 'bg-yellow-100 text-yellow-800',
+      COMPLETED: 'bg-green-100 text-green-800',
+      CANCELLED: 'bg-red-100 text-red-800',
+      TODO: 'bg-gray-100 text-gray-800',
+      IN_REVIEW: 'bg-purple-100 text-purple-800',
+      DONE: 'bg-green-100 text-green-800',
     }
-    return colors[status] || "bg-gray-100 text-gray-800"
+    return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
-      LOW: "text-gray-500",
-      MEDIUM: "text-blue-500",
-      HIGH: "text-orange-500",
-      URGENT: "text-red-500",
+      LOW: 'text-gray-500',
+      MEDIUM: 'text-blue-500',
+      HIGH: 'text-orange-500',
+      URGENT: 'text-red-500',
     }
-    return colors[priority] || "text-gray-500"
+    return colors[priority] || 'text-gray-500'
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     })
   }
 
@@ -126,11 +136,26 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Overview of your projects and tasks
-          </p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Overview of your projects and tasks
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">
+                Welcome, {session?.user?.name || session?.user?.email}
+              </span>
+              <button
+                onClick={() => signOut()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -334,10 +359,10 @@ export default function DashboardPage() {
                         <div key={status} className="flex items-center">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              status
+                              status,
                             )}`}
                           >
-                            {status.replace("_", " ")}
+                            {status.replace('_', ' ')}
                           </span>
                           <div className="ml-4 flex-1">
                             <div className="relative pt-1">
@@ -355,10 +380,10 @@ export default function DashboardPage() {
                             {count}
                           </span>
                         </div>
-                      )
+                      ),
                     )}
-                    {Object.keys(data?.metrics.projectsByStatus || {}).length ===
-                      0 && (
+                    {Object.keys(data?.metrics.projectsByStatus || {})
+                      .length === 0 && (
                       <p className="text-sm text-gray-500">No projects yet</p>
                     )}
                   </div>
@@ -379,10 +404,10 @@ export default function DashboardPage() {
                         <div key={status} className="flex items-center">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              status
+                              status,
                             )}`}
                           >
-                            {status.replace("_", " ")}
+                            {status.replace('_', ' ')}
                           </span>
                           <div className="ml-4 flex-1">
                             <div className="relative pt-1">
@@ -400,7 +425,7 @@ export default function DashboardPage() {
                             {count}
                           </span>
                         </div>
-                      )
+                      ),
                     )}
                     {Object.keys(data?.metrics.tasksByStatus || {}).length ===
                       0 && (
@@ -441,17 +466,17 @@ export default function DashboardPage() {
                                   {project.name}
                                 </Link>
                                 <p className="text-sm text-gray-500">
-                                  {project._count.tasks} tasks,{" "}
+                                  {project._count.tasks} tasks,{' '}
                                   {project._count.resources} resources
                                 </p>
                               </div>
                               <div className="ml-4 flex-shrink-0">
                                 <span
                                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                                    project.status
+                                    project.status,
                                   )}`}
                                 >
-                                  {project.status.replace("_", " ")}
+                                  {project.status.replace('_', ' ')}
                                 </span>
                               </div>
                             </div>
@@ -478,35 +503,43 @@ export default function DashboardPage() {
                       <ul className="-my-5 divide-y divide-gray-200">
                         {data.recentTasks.map((task) => (
                           <li key={task.id} className="py-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {task.title}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {task.project.name}
-                                  {task.assignedTo && (
-                                    <span> • {task.assignedTo.user.name}</span>
-                                  )}
-                                </p>
+                            <Link
+                              href={`/tasks/${task.id}`}
+                              className="block hover:bg-gray-50 -mx-4 px-4 py-4"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {task.title}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {task.project?.name || 'Unknown Project'}
+                                    {task.assignedTo?.user?.name && (
+                                      <span>
+                                        {' '}
+                                        • {task.assignedTo.user.name}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="ml-4 flex-shrink-0 flex items-center space-x-2">
+                                  <span
+                                    className={`text-xs font-medium ${getPriorityColor(
+                                      task.priority,
+                                    )}`}
+                                  >
+                                    {task.priority}
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                                      task.status,
+                                    )}`}
+                                  >
+                                    {task.status.replace('_', ' ')}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="ml-4 flex-shrink-0 flex items-center space-x-2">
-                                <span
-                                  className={`text-xs font-medium ${getPriorityColor(
-                                    task.priority
-                                  )}`}
-                                >
-                                  {task.priority}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                                    task.status
-                                  )}`}
-                                >
-                                  {task.status.replace("_", " ")}
-                                </span>
-                              </div>
-                            </div>
+                            </Link>
                           </li>
                         ))}
                       </ul>

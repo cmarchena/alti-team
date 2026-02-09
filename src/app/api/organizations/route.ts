@@ -1,23 +1,36 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { getOrganizationRepository } from "@/lib/repositories"
 import { isSuccess, isFailure } from "@/lib/result"
+import jwt from "jsonwebtoken"
+
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key-change-in-production"
+
+async function validateToken(authHeader: string | null): Promise<string | null> {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null
+  }
+
+  const token = authHeader.substring(7)
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { sub: string }
+    return decoded.sub
+  } catch {
+    return null
+  }
+}
 
 // GET /api/organizations - List all organizations for the current user
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const userId = await validateToken(request.headers.get("authorization"))
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const organizationRepository = getOrganizationRepository()
-    const organizationsResult = await organizationRepository.findByOwnerId(session.user.id)
+    const organizationsResult = await organizationRepository.findByOwnerId(userId)
 
     if (isFailure(organizationsResult)) {
       return NextResponse.json(
@@ -26,7 +39,6 @@ export async function GET(request: Request) {
       )
     }
 
-    // Add count fields for compatibility (in-memory doesn't support include)
     const organizationsWithCounts = organizationsResult.data.map(org => ({
       ...org,
       _count: {
@@ -49,9 +61,9 @@ export async function GET(request: Request) {
 // POST /api/organizations - Create a new organization
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const userId = await validateToken(request.headers.get("authorization"))
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -60,7 +72,6 @@ export async function POST(request: Request) {
 
     const { name, description } = await request.json()
 
-    // Validate input
     if (!name) {
       return NextResponse.json(
         { error: "Organization name is required" },
@@ -72,7 +83,7 @@ export async function POST(request: Request) {
     const createResult = await organizationRepository.create({
       name,
       description: description || undefined,
-      ownerId: session.user.id,
+      ownerId: userId,
     })
 
     if (isFailure(createResult)) {

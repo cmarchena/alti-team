@@ -219,6 +219,11 @@ export interface TeamMember {
   position?: string
   createdAt: Date
   updatedAt: Date
+  user?: {
+    id: string
+    name: string
+    email: string
+  }
 }
 
 export interface CreateTeamMemberInput {
@@ -349,6 +354,11 @@ export interface Comment {
   parentId?: string
   createdAt: Date
   updatedAt: Date
+  author?: {
+    id: string
+    name: string
+    email: string
+  }
 }
 
 export interface Team {

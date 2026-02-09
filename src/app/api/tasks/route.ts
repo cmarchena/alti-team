@@ -1,15 +1,31 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 import { getTaskRepository, getProjectRepository, getOrganizationRepository } from "@/lib/repositories"
 import { isSuccess, isFailure } from "@/lib/result"
+import jwt from "jsonwebtoken"
+
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || "your-secret-key-change-in-production"
+
+async function validateToken(authHeader: string | null): Promise<string | null> {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null
+  }
+
+  const token = authHeader.substring(7)
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { sub: string }
+    return decoded.sub
+  } catch {
+    return null
+  }
+}
 
 // GET /api/tasks - List tasks by projectId
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const userId = await validateToken(request.headers.get("authorization"))
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -20,7 +36,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "projectId is required" }, { status: 400 })
     }
 
-    // Check project access
     const projectRepository = getProjectRepository()
     const projectResult = await projectRepository.findById(projectId)
     
@@ -28,7 +43,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 403 })
     }
 
-    // Check organization access
     const organizationRepository = getOrganizationRepository()
     const orgResult = await organizationRepository.findById(projectResult.data.organizationId)
     
@@ -36,7 +50,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Organization not found" }, { status: 403 })
     }
 
-    if (orgResult.data.ownerId !== session.user.id) {
+    if (orgResult.data.ownerId !== userId) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
@@ -57,9 +71,9 @@ export async function GET(request: Request) {
 // POST /api/tasks - Create a new task
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions)
+    const userId = await validateToken(request.headers.get("authorization"))
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -69,7 +83,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Title and projectId are required" }, { status: 400 })
     }
 
-    // Check project access
     const projectRepository = getProjectRepository()
     const projectResult = await projectRepository.findById(projectId)
     
@@ -77,7 +90,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Project not found or access denied" }, { status: 403 })
     }
 
-    // Check organization access
     const organizationRepository = getOrganizationRepository()
     const orgResult = await organizationRepository.findById(projectResult.data.organizationId)
     
@@ -85,7 +97,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Organization not found" }, { status: 403 })
     }
 
-    if (orgResult.data.ownerId !== session.user.id) {
+    if (orgResult.data.ownerId !== userId) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
