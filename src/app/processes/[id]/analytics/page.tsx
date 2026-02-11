@@ -272,7 +272,7 @@ export default function ProcessAnalyticsPage() {
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Step Performance</h3>
-            <p className="mt-1 text-sm text-gray-500">Detailed breakdown of each step's completion time</p>
+            <p className="mt-1 text-sm text-gray-500">Detailed breakdown of each step&apos;s completion time</p>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">

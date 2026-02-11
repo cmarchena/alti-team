@@ -103,6 +103,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const departmentRepository = getDepartmentRepository()
+
     // Validate parent department if provided
     if (parentId) {
       const parentResult = await departmentRepository.findById(parentId)
@@ -120,7 +122,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const departmentRepository = getDepartmentRepository()
     const createResult = await departmentRepository.create({
       name,
       description: description || undefined,

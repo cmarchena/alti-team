@@ -522,7 +522,7 @@ export default function MessageRenderer({ content }: MessageRendererProps) {
         <div className="space-y-4">
           {parsed.query && (
             <p className="text-sm text-gray-600 mb-2">
-              Search results for "{parsed.query}":
+              Search results for &quot;{parsed.query}&quot;:
             </p>
           )}
           {results.counts.projects > 0 && (

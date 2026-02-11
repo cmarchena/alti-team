@@ -1,7 +1,12 @@
 import pg from 'pg'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 
 const { Client } = pg
+
+function generateUUID(): string {
+  return crypto.randomUUID()
+}
 
 async function seed() {
   const client = new Client({
@@ -17,84 +22,92 @@ async function seed() {
   try {
     const password = await bcrypt.hash('password123', 10)
 
-    // Create demo users
     const users = [
-      {
-        id: 'user-1',
-        email: 'admin@example.com',
-        name: 'Admin User',
-        password,
-      },
-      {
-        id: 'user-2',
-        email: 'john@example.com',
-        name: 'John Developer',
-        password,
-      },
-      {
-        id: 'user-3',
-        email: 'jane@example.com',
-        name: 'Jane Designer',
-        password,
-      },
-      { id: 'user-4', email: 'bob@example.com', name: 'Bob Manager', password },
+      { id: 'user-1', email: 'admin@example.com', name: 'Admin User' },
+      { id: 'user-2', email: 'john@example.com', name: 'John Developer' },
+      { id: 'user-3', email: 'jane@example.com', name: 'Jane Designer' },
+      { id: 'user-4', email: 'bob@example.com', name: 'Bob Manager' },
     ]
 
     for (const user of users) {
       await client.query(
         `INSERT INTO users (id, email, name, password) VALUES ($1, $2, $3, $4)
-         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
-        [user.id, user.email, user.name, user.password],
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email`,
+        [user.id, user.email, user.name, password],
       )
     }
 
-    // Create organization
+    const orgId = generateUUID()
     await client.query(
       `INSERT INTO organizations (id, name, description, owner_id)
-       VALUES ('org-1', 'Acme Corp', 'A sample organization for testing', 'user-1')
-       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
-    )
-
-    // Create departments
-    await client.query(
-      `INSERT INTO departments (id, name, description, organization_id)
-       VALUES ('dept-1', 'Engineering', 'Software Engineering Team', 'org-1'),
-              ('dept-2', 'Design', 'Product Design Team', 'org-1'),
-              ('dept-3', 'Frontend', 'Frontend Development', 'org-1')
+       VALUES ($1, 'Acme Corp', 'A sample organization for testing', $2)
        ON CONFLICT (id) DO NOTHING`,
+      [orgId, users[0].id],
     )
 
-    // Create team members
+    const orgResult = await client.query(
+      `SELECT id FROM organizations WHERE name = 'Acme Corp' LIMIT 1`,
+    )
+    const actualOrgId = orgResult.rows[0]?.id || orgId
+
+    const deptEngineeringId = generateUUID()
+    const deptDesignId = generateUUID()
+    const deptFrontendId = generateUUID()
+
+    const departments = [
+      {
+        id: deptEngineeringId,
+        name: 'Engineering',
+        description: 'Software Engineering Team',
+      },
+      { id: deptDesignId, name: 'Design', description: 'Product Design Team' },
+      {
+        id: deptFrontendId,
+        name: 'Frontend',
+        description: 'Frontend Development',
+      },
+    ]
+
+    for (const dept of departments) {
+      await client.query(
+        `INSERT INTO departments (id, name, description, organization_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO NOTHING`,
+        [dept.id, dept.name, dept.description, actualOrgId],
+      )
+    }
+
+    const tmAdminId = generateUUID()
+    const tmJohnId = generateUUID()
+    const tmJaneId = generateUUID()
+    const tmBobId = generateUUID()
+
     const teamMembers = [
       {
-        id: 'tm-1',
-        user_id: 'user-1',
-        org_id: 'org-1',
-        dept_id: 'dept-1',
+        id: tmAdminId,
+        userId: users[0].id,
+        deptId: deptEngineeringId,
         role: 'ADMIN',
         position: 'CTO',
       },
       {
-        id: 'tm-2',
-        user_id: 'user-2',
-        org_id: 'org-1',
-        dept_id: 'dept-1',
+        id: tmJohnId,
+        userId: users[1].id,
+        deptId: deptEngineeringId,
         role: 'MEMBER',
         position: 'Senior Developer',
       },
       {
-        id: 'tm-3',
-        user_id: 'user-3',
-        org_id: 'org-1',
-        dept_id: 'dept-2',
+        id: tmJaneId,
+        userId: users[2].id,
+        deptId: deptDesignId,
         role: 'MEMBER',
         position: 'UX Designer',
       },
       {
-        id: 'tm-4',
-        user_id: 'user-4',
-        org_id: 'org-1',
-        dept_id: 'dept-3',
+        id: tmBobId,
+        userId: users[3].id,
+        deptId: deptFrontendId,
         role: 'VIEWER',
         position: 'Project Manager',
       },
@@ -105,32 +118,32 @@ async function seed() {
         `INSERT INTO team_members (id, user_id, organization_id, department_id, role, position)
          VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role`,
-        [tm.id, tm.user_id, tm.org_id, tm.dept_id, tm.role, tm.position],
+        [tm.id, tm.userId, actualOrgId, tm.deptId, tm.role, tm.position],
       )
     }
 
-    // Create projects
+    const proj1Id = generateUUID()
+    const proj2Id = generateUUID()
+    const proj3Id = generateUUID()
+
     const projects = [
       {
-        id: 'proj-1',
+        id: proj1Id,
         name: 'Website Redesign',
         description: 'Complete redesign of company website',
         status: 'IN_PROGRESS',
-        org_id: 'org-1',
       },
       {
-        id: 'proj-2',
+        id: proj2Id,
         name: 'Mobile App',
         description: 'New mobile application for customers',
         status: 'PLANNING',
-        org_id: 'org-1',
       },
       {
-        id: 'proj-3',
+        id: proj3Id,
         name: 'API Integration',
         description: 'Third-party API integrations',
-        status: 'DONE',
-        org_id: 'org-1',
+        status: 'COMPLETED',
       },
     ]
 
@@ -139,65 +152,58 @@ async function seed() {
         `INSERT INTO projects (id, name, description, status, organization_id)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
-        [proj.id, proj.name, proj.description, proj.status, proj.org_id],
+        [proj.id, proj.name, proj.description, proj.status, actualOrgId],
       )
     }
 
-    // Create tasks
     const tasks = [
       {
-        id: 'task-1',
         title: 'Design homepage mockup',
         description: 'Create high-fidelity mockup for homepage',
         status: 'DONE',
         priority: 'HIGH',
-        project_id: 'proj-1',
-        assigned_to_id: 'tm-3',
+        projectId: proj1Id,
+        assignedTo: tmJaneId,
       },
       {
-        id: 'task-2',
         title: 'Implement responsive layout',
         description: 'Make homepage responsive',
         status: 'IN_PROGRESS',
         priority: 'HIGH',
-        project_id: 'proj-1',
-        assigned_to_id: 'tm-2',
+        projectId: proj1Id,
+        assignedTo: tmJohnId,
       },
       {
-        id: 'task-3',
         title: 'Add navigation menu',
         description: 'Implement navigation with dropdowns',
         status: 'TODO',
         priority: 'MEDIUM',
-        project_id: 'proj-1',
-        assigned_to_id: 'tm-2',
+        projectId: proj1Id,
+        assignedTo: tmJohnId,
       },
       {
-        id: 'task-4',
         title: 'Write API documentation',
         description: 'Document all API endpoints',
         status: 'TODO',
         priority: 'LOW',
-        project_id: 'proj-3',
-        assigned_to_id: 'tm-2',
+        projectId: proj3Id,
+        assignedTo: tmJohnId,
       },
       {
-        id: 'task-5',
         title: 'User research interviews',
         description: 'Conduct 10 user interviews',
         status: 'IN_PROGRESS',
         priority: 'URGENT',
-        project_id: 'proj-2',
-        assigned_to_id: 'tm-4',
+        projectId: proj2Id,
+        assignedTo: tmBobId,
       },
       {
-        id: 'task-6',
         title: 'Set up CI/CD pipeline',
         description: 'Configure GitHub Actions for deployment',
         status: 'DONE',
         priority: 'HIGH',
-        project_id: 'proj-3',
-        assigned_to_id: 'tm-2',
+        projectId: proj3Id,
+        assignedTo: tmJohnId,
       },
     ]
 
@@ -207,57 +213,72 @@ async function seed() {
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title`,
         [
-          task.id,
+          generateUUID(),
           task.title,
           task.description,
           task.status,
           task.priority,
-          task.project_id,
-          task.assigned_to_id,
+          task.projectId,
+          task.assignedTo,
         ],
       )
     }
 
-    // Create processes
     await client.query(
       `INSERT INTO processes (id, name, description, steps, department_id, organization_id, created_by_id)
-       VALUES ('proc-1', 'Code Review', 'Standard code review process',
+       VALUES ($1, 'Code Review', 'Standard code review process',
                '[{"name": "Submit PR", "description": "Create pull request"}, {"name": "Review", "description": "Team review"}, {"name": "Approve", "description": "Lead approval"}, {"name": "Merge", "description": "Merge to main"}]',
-               'dept-1', 'org-1', 'user-1')
+               $2, $3, $4)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+      [generateUUID(), deptEngineeringId, actualOrgId, users[0].id],
     )
 
-    // Create notifications
     await client.query(
       `INSERT INTO notifications (id, type, message, user_id)
-       VALUES ('notif-1', 'TASK_ASSIGNED', 'You have been assigned to "Implement responsive layout"', 'user-2'),
-              ('notif-2', 'TASK_UPDATED', 'Task "Design homepage mockup" status changed to DONE', 'user-3'),
-              ('notif-3', 'PROJECT_CREATED', 'New project "Mobile App" created', 'user-1')
+       VALUES ($1, 'TASK_ASSIGNED', 'You have been assigned to "Implement responsive layout"', $2),
+              ($3, 'TASK_UPDATED', 'Task "Design homepage mockup" status changed to DONE', $4),
+              ($5, 'PROJECT_CREATED', 'New project "Mobile App" created', $6)
        ON CONFLICT (id) DO NOTHING`,
+      [
+        generateUUID(),
+        users[1].id,
+        generateUUID(),
+        users[2].id,
+        generateUUID(),
+        users[0].id,
+      ],
     )
 
-    // Create resources
     await client.query(
       `INSERT INTO resources (id, name, type, url, project_id, uploaded_by_id)
-       VALUES ('res-1', 'Design Guidelines', 'LINK', 'https://example.com/design', 'proj-1', 'user-3'),
-              ('res-2', 'API Spec', 'LINK', 'https://example.com/api', 'proj-3', 'user-1')
+       VALUES ($1, 'Design Guidelines', 'LINK', 'https://example.com/design', $2, $3),
+              ($4, 'API Spec', 'LINK', 'https://example.com/api', $5, $6)
        ON CONFLICT (id) DO NOTHING`,
+      [
+        generateUUID(),
+        proj1Id,
+        users[2].id,
+        generateUUID(),
+        proj3Id,
+        users[0].id,
+      ],
     )
 
-    // Create comments
     await client.query(
       `INSERT INTO comments (id, content, task_id, user_id)
-       VALUES ('comment-1', 'Looks great! Minor changes needed.', 'task-1', 'user-1'),
-              ('comment-2', 'Thanks! I will address the comments.', 'task-1', 'user-3')
+       VALUES ($1, 'Looks great! Minor changes needed.', (SELECT id FROM tasks WHERE title = 'Design homepage mockup' LIMIT 1), $2),
+              ($3, 'Thanks! I will address the comments.', (SELECT id FROM tasks WHERE title = 'Design homepage mockup' LIMIT 1), $4)
        ON CONFLICT (id) DO NOTHING`,
+      [generateUUID(), users[0].id, generateUUID(), users[2].id],
     )
 
     console.log('Database seeded successfully!')
     console.log('\nDemo accounts:')
-    console.log('  admin@example.com / password123 (Admin)')
-    console.log('  john@example.com / password123 (Developer)')
-    console.log('  jane@example.com / password123 (Designer)')
-    console.log('  bob@example.com / password123 (Manager)')
+    console.log('  admin@example.com / password123 (Admin - CTO)')
+    console.log('  john@example.com / password123 (Developer - Senior Dev)')
+    console.log('  jane@example.com / password123 (Designer - UX Designer)')
+    console.log('  bob@example.com / password123 (Manager - Project Manager)')
+    console.log('\nOrganization: Acme Corp with 3 departments and 3 projects')
   } finally {
     await client.end()
   }

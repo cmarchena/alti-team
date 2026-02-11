@@ -403,32 +403,41 @@ class PostgresTaskRepository {
             const values = [];
             let paramIndex = 1;
             if (data.title !== undefined) {
-                setParts.push(`title = ${paramIndex++}`);
+                setParts.push(`title = $${paramIndex}::text`);
                 values.push(data.title);
+                paramIndex++;
             }
             if (data.description !== undefined) {
-                setParts.push(`description = ${paramIndex++}`);
+                setParts.push(`description = $${paramIndex}::text`);
                 values.push(data.description);
+                paramIndex++;
             }
             if (data.status !== undefined) {
-                setParts.push(`status = ${paramIndex++}`);
+                setParts.push(`status = $${paramIndex}::text`);
                 values.push(data.status);
+                paramIndex++;
             }
             if (data.priority !== undefined) {
-                setParts.push(`priority = ${paramIndex++}`);
+                setParts.push(`priority = $${paramIndex}::text`);
                 values.push(data.priority);
+                paramIndex++;
             }
             if (data.dueDate !== undefined) {
-                setParts.push(`due_date = ${paramIndex++}`);
+                setParts.push(`due_date = $${paramIndex}::timestamptz`);
                 values.push(data.dueDate);
+                paramIndex++;
             }
             if (data.assignedToId !== undefined) {
-                setParts.push(`assigned_to_id = ${paramIndex++}`);
+                setParts.push(`assigned_to_id = $${paramIndex}::text`);
                 values.push(data.assignedToId);
+                paramIndex++;
             }
             setParts.push(`updated_at = NOW()`);
+
+            const idParamIndex = paramIndex;
             values.push(id);
-            const result = await pool.query(`UPDATE tasks SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`, values);
+
+            const result = await pool.query(`UPDATE tasks SET ${setParts.join(', ')} WHERE id = $${idParamIndex}::text RETURNING *`, values);
             if (result.rows.length === 0) {
                 return (0, result_1.failure)(new Error(`Task with id ${id} not found`));
             }

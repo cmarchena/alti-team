@@ -55,6 +55,8 @@ import {
 } from './types'
 import { Result, success, failure } from '../result'
 
+console.log('=== POSTGRES.TS MODULE LOADED - VERSION 2 ===')
+
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
@@ -133,36 +135,35 @@ class PostgresOrganizationRepository implements OrganizationRepository {
     data: UpdateOrganizationInput,
   ): Promise<Result<Organization>> {
     try {
-      const setParts = []
-      const values = []
+      const setParts: string[] = []
+      const values: unknown[] = []
       let paramIndex = 1
 
       if (data.name !== undefined) {
-        setParts.push(`name = $${paramIndex++}`)
+        setParts.push(`name = $${paramIndex}`)
         values.push(data.name)
+        paramIndex++
       }
       if (data.description !== undefined) {
-        setParts.push(`description = $${paramIndex++}`)
+        setParts.push(`description = $${paramIndex}`)
         values.push(data.description)
+        paramIndex++
       }
 
       setParts.push(`updated_at = NOW()`)
+
       values.push(id)
 
-      const result = await pool.query(
-        `UPDATE organizations SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values,
-      )
+      const sql = `UPDATE organizations SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`
+      const result = await pool.query(sql, values)
 
       if (result.rows.length === 0) {
         return failure(new Error(`Organization with id ${id} not found`))
       }
 
-      return success(result.rows[0])
+      return success(toCamelCase(result.rows[0]) as unknown as Organization)
     } catch (error) {
-      return failure(
-        error instanceof Error ? error : new Error('Unknown error'),
-      )
+      return failure(error instanceof Error ? error : new Error('Unknown error'))
     }
   }
 
@@ -434,6 +435,10 @@ class PostgresProjectRepository implements ProjectRepository {
     organizationId: string,
   ): Promise<Result<Project[]>> {
     try {
+      if (!organizationId) {
+        const result = await pool.query('SELECT * FROM projects')
+        return success(result.rows)
+      }
       const result = await pool.query(
         'SELECT * FROM projects WHERE organization_id = $1',
         [organizationId],
@@ -547,11 +552,15 @@ class PostgresTaskRepository implements TaskRepository {
 
   async findByProjectId(projectId: string): Promise<Result<Task[]>> {
     try {
+      if (!projectId) {
+        const result = await pool.query('SELECT * FROM tasks')
+        return success(result.rows.map(toCamelCase) as unknown as Task[])
+      }
       const result = await pool.query(
         'SELECT * FROM tasks WHERE project_id = $1',
         [projectId],
       )
-      return success(result.rows)
+      return success(result.rows.map(toCamelCase) as unknown as Task[])
     } catch (error) {
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),
@@ -565,7 +574,7 @@ class PostgresTaskRepository implements TaskRepository {
         'SELECT * FROM tasks WHERE assigned_to_id = $1',
         [assignedToId],
       )
-      return success(result.rows)
+      return success(result.rows.map(toCamelCase) as unknown as Task[])
     } catch (error) {
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),
@@ -599,48 +608,56 @@ class PostgresTaskRepository implements TaskRepository {
 
   async update(id: string, data: UpdateTaskInput): Promise<Result<Task>> {
     try {
-      const setParts = []
-      const values = []
+      const setParts: string[] = []
+      const values: unknown[] = []
       let paramIndex = 1
 
       if (data.title !== undefined) {
-        setParts.push(`title = $${paramIndex++}`)
+        setParts.push(`title = $${paramIndex}::text`)
         values.push(data.title)
+        paramIndex++
       }
       if (data.description !== undefined) {
-        setParts.push(`description = $${paramIndex++}`)
+        setParts.push(`description = $${paramIndex}::text`)
         values.push(data.description)
+        paramIndex++
       }
       if (data.status !== undefined) {
-        setParts.push(`status = $${paramIndex++}`)
+        setParts.push(`status = $${paramIndex}::text`)
         values.push(data.status)
+        paramIndex++
       }
       if (data.priority !== undefined) {
-        setParts.push(`priority = $${paramIndex++}`)
+        setParts.push(`priority = $${paramIndex}::text`)
         values.push(data.priority)
+        paramIndex++
       }
       if (data.dueDate !== undefined) {
-        setParts.push(`due_date = $${paramIndex++}`)
+        setParts.push(`due_date = $${paramIndex}::timestamptz`)
         values.push(data.dueDate)
+        paramIndex++
       }
       if (data.assignedToId !== undefined) {
-        setParts.push(`assigned_to_id = $${paramIndex++}`)
+        setParts.push(`assigned_to_id = $${paramIndex}::text`)
         values.push(data.assignedToId)
+        paramIndex++
       }
 
+      // always update timestamp
       setParts.push(`updated_at = NOW()`)
+
+      // id param index is current paramIndex
+      const idParamIndex = paramIndex
       values.push(id)
 
-      const result = await pool.query(
-        `UPDATE tasks SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
-        values,
-      )
+      const sqlQuery = `UPDATE tasks SET ${setParts.join(', ')} WHERE id = $${idParamIndex}::text RETURNING *`
+      const result = await pool.query(sqlQuery, values)
 
       if (result.rows.length === 0) {
         return failure(new Error(`Task with id ${id} not found`))
       }
 
-      return success(result.rows[0])
+      return success(toCamelCase(result.rows[0]) as unknown as Task)
     } catch (error) {
       return failure(
         error instanceof Error ? error : new Error('Unknown error'),
@@ -720,21 +737,25 @@ class PostgresResourceRepository implements ResourceRepository {
       let paramIndex = 1
 
       if (data.name !== undefined) {
-        setParts.push(`name = ${paramIndex++}`)
+        setParts.push(`name = $${paramIndex++}`)
         values.push(data.name)
       }
       if (data.type !== undefined) {
-        setParts.push(`type = ${paramIndex++}`)
+        setParts.push(`type = $${paramIndex++}`)
         values.push(data.type)
       }
       if (data.url !== undefined) {
-        setParts.push(`url = ${paramIndex++}`)
+        setParts.push(`url = $${paramIndex++}`)
         values.push(data.url)
       }
 
+      const numFields = setParts.length
+      setParts.push(`updated_at = NOW()`)
+
       values.push(id)
+
       const result = await pool.query(
-        `UPDATE resources SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
+        `UPDATE resources SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -855,23 +876,25 @@ class PostgresTeamMemberRepository implements TeamMemberRepository {
       let paramIndex = 1
 
       if (data.departmentId !== undefined) {
-        setParts.push(`department_id = ${paramIndex++}`)
+        setParts.push(`department_id = $${paramIndex++}`)
         values.push(data.departmentId)
       }
       if (data.role !== undefined) {
-        setParts.push(`role = ${paramIndex++}`)
+        setParts.push(`role = $${paramIndex++}`)
         values.push(data.role)
       }
       if (data.position !== undefined) {
-        setParts.push(`position = ${paramIndex++}`)
+        setParts.push(`position = $${paramIndex++}`)
         values.push(data.position)
       }
 
+      const numFields = setParts.length
       setParts.push(`updated_at = NOW()`)
+
       values.push(id)
 
       const result = await pool.query(
-        `UPDATE team_members SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
+        `UPDATE team_members SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -980,17 +1003,21 @@ class PostgresInvitationRepository implements InvitationRepository {
       let paramIndex = 1
 
       if (data.status !== undefined) {
-        setParts.push(`status = ${paramIndex++}`)
+        setParts.push(`status = $${paramIndex++}`)
         values.push(data.status)
       }
       if (data.acceptedAt !== undefined) {
-        setParts.push(`accepted_at = ${paramIndex++}`)
+        setParts.push(`accepted_at = $${paramIndex++}`)
         values.push(data.acceptedAt)
       }
 
+      const numFields = setParts.length
+      setParts.push(`updated_at = NOW()`)
+
       values.push(id)
+
       const result = await pool.query(
-        `UPDATE invitations SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
+        `UPDATE invitations SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -1091,23 +1118,25 @@ class PostgresProcessRepository implements ProcessRepository {
       let paramIndex = 1
 
       if (data.name !== undefined) {
-        setParts.push(`name = ${paramIndex++}`)
+        setParts.push(`name = $${paramIndex++}`)
         values.push(data.name)
       }
       if (data.description !== undefined) {
-        setParts.push(`description = ${paramIndex++}`)
+        setParts.push(`description = $${paramIndex++}`)
         values.push(data.description)
       }
       if (data.steps !== undefined) {
-        setParts.push(`steps = ${paramIndex++}`)
+        setParts.push(`steps = $${paramIndex++}`)
         values.push(data.steps)
       }
 
+      const numFields = setParts.length
       setParts.push(`updated_at = NOW()`)
+
       values.push(id)
 
       const result = await pool.query(
-        `UPDATE processes SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
+        `UPDATE processes SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -1289,14 +1318,17 @@ class PostgresCommentRepository implements CommentRepository {
       let paramIndex = 1
 
       if (data.content !== undefined) {
-        setParts.push(`content = ${paramIndex++}`)
+        setParts.push(`content = $${paramIndex++}`)
         values.push(data.content)
       }
+
+      const numFields = setParts.length
       setParts.push(`updated_at = NOW()`)
+
       values.push(id)
 
       const result = await pool.query(
-        `UPDATE comments SET ${setParts.join(', ')} WHERE id = ${paramIndex} RETURNING *`,
+        `UPDATE comments SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -1379,11 +1411,14 @@ class PostgresTeamRepository implements TeamRepository {
         setParts.push(`description = $${paramIndex++}`)
         values.push(data.description)
       }
+
+      const numFields = setParts.length
       setParts.push(`updated_at = NOW()`)
+
       values.push(id)
 
       const result = await pool.query(
-        `UPDATE teams SET ${setParts.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+        `UPDATE teams SET ${setParts.join(', ')} WHERE id = $${numFields + 1} RETURNING *`,
         values,
       )
 
@@ -1454,6 +1489,7 @@ class PostgresConversationRepository implements ConversationRepository {
 
 // Create and export repositories
 export const createPostgresRepositories = (): Repositories => {
+  console.log('=== createPostgresRepositories CALLED - VERSION 2 ===')
   return {
     organizations: new PostgresOrganizationRepository(),
     users: new PostgresUserRepository(),

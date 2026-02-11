@@ -1,7 +1,9 @@
 import { MCPServerContext, registerTool } from '../index.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 // User Profile Tools
-const getMyProfileTool = {
+
+registerTool({
   name: 'get_my_profile',
   description: 'Get current user\'s profile information',
   inputSchema: {
@@ -19,14 +21,14 @@ const getMyProfileTool = {
 
     const result = await context.repositories.users.findById(context.userId)
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
-        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        content: [{ type: 'text', text: `Error: ${result.error?.message || 'Unknown error'}` }],
         isError: true,
       }
     }
 
-    const user = result.value
+    const user = result.data
     if (!user) {
       return {
         content: [{ type: 'text', text: 'User not found' }],
@@ -49,9 +51,9 @@ const getMyProfileTool = {
       ],
     }
   },
-}
+})
 
-const updateMyProfileTool = {
+registerTool({
   name: 'update_my_profile',
   description: 'Update current user\'s profile',
   inputSchema: {
@@ -78,9 +80,9 @@ const updateMyProfileTool = {
 
     const result = await context.repositories.users.update(context.userId, updateData)
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
-        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        content: [{ type: 'text', text: `Error: ${result.error?.message || 'Unknown error'}` }],
         isError: true,
       }
     }
@@ -94,9 +96,9 @@ const updateMyProfileTool = {
       ],
     }
   },
-}
+})
 
-const searchUsersTool = {
+registerTool({
   name: 'search_users',
   description: 'Search for users by name or email',
   inputSchema: {
@@ -115,14 +117,14 @@ const searchUsersTool = {
       args.limit
     )
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
-        content: [{ type: 'text', text: `Error: ${result.error.message}` }],
+        content: [{ type: 'text', text: `Error: ${result.error?.message || 'Unknown error'}` }],
         isError: true,
       }
     }
 
-    const users = result.value
+    const users = result.data || []
     return {
       content: [
         {
@@ -136,11 +138,4 @@ const searchUsersTool = {
       ],
     }
   },
-}
-
-// Register tools
-import { globalContext, registerTool } from '../index.js'
-
-registerTool(getMyProfileTool)
-registerTool(updateMyProfileTool)
-registerTool(searchUsersTool)
+})

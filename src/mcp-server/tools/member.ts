@@ -1,5 +1,6 @@
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 // List Organization Members Tool
 const listOrganizationMembersTool = {
@@ -33,14 +34,14 @@ const listOrganizationMembersTool = {
     // Get members from teamMembers repository
     const membersResult = await context.repositories.teamMembers.findByOrganizationId(args.organizationId)
 
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
         isError: true,
       }
     }
 
-    let members = membersResult.value
+    let members = membersResult.data
 
     // Filter by role if specified
     if (args.role) {
@@ -51,12 +52,12 @@ const listOrganizationMembersTool = {
     const membersWithDetails = []
     for (const member of members) {
       const userResult = await context.repositories.users.findById(member.userId)
-      if (userResult.isOk() && userResult.value) {
+      if (isSuccess(userResult) && userResult.data) {
         membersWithDetails.push({
           id: member.id,
           userId: member.userId,
-          name: userResult.value.name,
-          email: userResult.value.email,
+          name: userResult.data.name,
+          email: userResult.data.email,
           role: member.role,
           position: member.position,
           departmentId: member.departmentId,
@@ -97,14 +98,14 @@ const getMemberTool = {
 
     const memberResult = await context.repositories.teamMembers.findById(args.memberId)
 
-    if (memberResult.isErr()) {
+    if (isFailure(memberResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${memberResult.error.message}` }],
         isError: true,
       }
     }
 
-    const member = memberResult.value
+    const member = memberResult.data
     if (!member) {
       return {
         content: [{ type: 'text', text: 'Member not found' }],
@@ -123,7 +124,7 @@ const getMemberTool = {
 
     // Get user details
     const userResult = await context.repositories.users.findById(member.userId)
-    if (userResult.isErr() || !userResult.value) {
+    if (isFailure(userResult) || !userResult.data) {
       return {
         content: [{ type: 'text', text: 'User details not found' }],
         isError: true,
@@ -137,8 +138,8 @@ const getMemberTool = {
           text: JSON.stringify({
             id: member.id,
             userId: member.userId,
-            name: userResult.value.name,
-            email: userResult.value.email,
+            name: userResult.data.name,
+            email: userResult.data.email,
             role: member.role,
             position: member.position,
             departmentId: member.departmentId,
@@ -185,14 +186,14 @@ const inviteMemberTool = {
 
     // Check if user is an admin (only admins can invite members)
     const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
         isError: true,
       }
     }
 
-    const userMembership = membersResult.value.find(m => m.organizationId === args.organizationId)
+    const userMembership = membersResult.data.find(m => m.organizationId === args.organizationId)
     if (!userMembership || userMembership.role !== 'admin') {
       return {
         content: [{ type: 'text', text: 'Only organization admins can invite new members' }],
@@ -208,14 +209,14 @@ const inviteMemberTool = {
       departmentId: args.departmentId,
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const invitation = result.value
+    const invitation = result.data
     return {
       content: [
         {
@@ -267,14 +268,14 @@ const listPendingInvitationsTool = {
 
     // Check if user is an admin (only admins can view invitations)
     const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
         isError: true,
       }
     }
 
-    const userMembership = membersResult.value.find(m => m.organizationId === args.organizationId)
+    const userMembership = membersResult.data.find(m => m.organizationId === args.organizationId)
     if (!userMembership || userMembership.role !== 'admin') {
       return {
         content: [{ type: 'text', text: 'Only organization admins can view invitations' }],
@@ -284,7 +285,7 @@ const listPendingInvitationsTool = {
 
     const invitationsResult = await context.repositories.invitations.findByOrganizationId(args.organizationId)
 
-    if (invitationsResult.isErr()) {
+    if (isFailure(invitationsResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${invitationsResult.error.message}` }],
         isError: true,
@@ -292,7 +293,7 @@ const listPendingInvitationsTool = {
     }
 
     // Filter pending invitations
-    const pendingInvitations = invitationsResult.value.filter(i => i.status === 'pending')
+    const pendingInvitations = invitationsResult.data.filter(i => i.status === 'pending')
 
     return {
       content: [
@@ -335,14 +336,14 @@ const cancelInvitationTool = {
     // Get the invitation first
     const invitationResult = await context.repositories.invitations.findById(args.invitationId)
 
-    if (invitationResult.isErr() || !invitationResult.value) {
+    if (isFailure(invitationResult) || !invitationResult.data) {
       return {
         content: [{ type: 'text', text: 'Invitation not found' }],
         isError: true,
       }
     }
 
-    const invitation = invitationResult.value
+    const invitation = invitationResult.data
 
     // Check if user has access to the organization
     const hasAccess = await validateOrganizationAccess(context.userId, invitation.organizationId, context)
@@ -355,14 +356,14 @@ const cancelInvitationTool = {
 
     // Check if user is an admin
     const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
         isError: true,
       }
     }
 
-    const userMembership = membersResult.value.find(m => m.organizationId === invitation.organizationId)
+    const userMembership = membersResult.data.find(m => m.organizationId === invitation.organizationId)
     if (!userMembership || userMembership.role !== 'admin') {
       return {
         content: [{ type: 'text', text: 'Only organization admins can cancel invitations' }],
@@ -375,7 +376,7 @@ const cancelInvitationTool = {
       status: 'cancelled',
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
@@ -396,7 +397,7 @@ const cancelInvitationTool = {
 // Update Member Role Tool
 const updateMemberRoleTool = {
   name: 'update_member_role',
-  description: 'Update a member\'s role',
+  description: "Update a member's role",
   inputSchema: {
     type: 'object',
     properties: {
@@ -416,14 +417,14 @@ const updateMemberRoleTool = {
     // Get the member
     const memberResult = await context.repositories.teamMembers.findById(args.memberId)
 
-    if (memberResult.isErr() || !memberResult.value) {
+    if (isFailure(memberResult) || !memberResult.data) {
       return {
         content: [{ type: 'text', text: 'Member not found' }],
         isError: true,
       }
     }
 
-    const member = memberResult.value
+    const member = memberResult.data
 
     // Check if user has access to the organization
     const hasAccess = await validateOrganizationAccess(context.userId, member.organizationId, context)
@@ -436,14 +437,14 @@ const updateMemberRoleTool = {
 
     // Check if user is an admin
     const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-    if (membersResult.isErr()) {
+    if (isFailure(membersResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${membersResult.error.message}` }],
         isError: true,
       }
     }
 
-    const userMembership = membersResult.value.find(m => m.organizationId === member.organizationId)
+    const userMembership = membersResult.data.find(m => m.organizationId === member.organizationId)
     if (!userMembership || userMembership.role !== 'admin') {
       return {
         content: [{ type: 'text', text: 'Only organization admins can update member roles' }],
@@ -456,7 +457,7 @@ const updateMemberRoleTool = {
       role: args.role,
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,

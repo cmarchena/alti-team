@@ -37,12 +37,12 @@ export async function GET(request: Request) {
       
       return {
         ...m,
-        user: isSuccess(userResult) ? { 
+        user: isSuccess(userResult) && userResult.data ? { 
           id: userResult.data.id, 
           name: userResult.data.name, 
           email: userResult.data.email 
         } : null,
-        organization: isSuccess(orgResult) ? {
+        organization: isSuccess(orgResult) && orgResult.data ? {
           id: orgResult.data.id,
           name: orgResult.data.name
         } : null,

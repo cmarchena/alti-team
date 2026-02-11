@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
-export default function AcceptInvitationPage() {
+function AcceptInvitationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
@@ -11,22 +11,11 @@ export default function AcceptInvitationPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
-  const [invitationInfo, setInvitationInfo] = useState<{
-    email: string
-    organizationName: string
-    role: string
-    departmentName?: string
-  } | null>(null)
 
   useEffect(() => {
     if (!token) {
       setError("Invalid invitation link")
-      setLoading(false)
-      return
     }
-
-    // For now, we'll show a simple accept button
-    // In a real app, we would fetch the invitation details first
     setLoading(false)
   }, [token])
 
@@ -147,5 +136,21 @@ export default function AcceptInvitationPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-gray-500">Loading...</div>
+    </div>
+  )
+}
+
+export default function AcceptInvitationPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AcceptInvitationContent />
+    </Suspense>
   )
 }

@@ -25,6 +25,13 @@ const createOrganizationTool = {
       }
     }
 
+    console.log(
+      '[create_organization] Creating:',
+      args.name,
+      'for user:',
+      context.userId,
+    )
+
     const result = await context.repositories.organizations.create({
       name: args.name,
       description: args.description || '',
@@ -39,6 +46,30 @@ const createOrganizationTool = {
     }
 
     const organization = result.data
+    console.log('[create_organization] Org created:', organization.id)
+
+    // Create team member entry for the owner
+    const memberResult = await context.repositories.teamMembers.create({
+      userId: context.userId,
+      organizationId: organization.id,
+      role: 'ADMIN',
+      position: 'Owner',
+    })
+
+    console.log('[create_organization] Team member result:', memberResult)
+
+    if (isFailure(memberResult)) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error creating team member: ${memberResult.error.message}`,
+          },
+        ],
+        isError: true,
+      }
+    }
+
     return {
       content: [
         {
@@ -209,7 +240,7 @@ const updateOrganizationTool = {
 
 // List My Organizations Tool
 const listMyOrganizationsTool = {
-  name: 'list_my_organizations',
+  name: 'listMyOrganizations',
   description: 'List all organizations the user belongs to',
   inputSchema: {
     type: 'object',
@@ -232,29 +263,31 @@ const listMyOrganizationsTool = {
     const memberOrgsResult =
       await context.repositories.teamMembers.findByUserId(context.userId)
 
-    let organizations: any[] = []
+    // Deduplicate using Map (owner takes priority)
+    const orgMap = new Map<string, any>()
 
-    if (isSuccess(ownedOrgsResult)) {
-      organizations = ownedOrgsResult.data.map((org) => ({
-        ...org,
-        role: 'owner',
-      }))
+    if (ownedOrgsResult.success) {
+      for (const org of ownedOrgsResult.data) {
+        orgMap.set(org.id, { ...org, role: 'owner' })
+      }
     }
 
-    if (isSuccess(memberOrgsResult)) {
-      const memberOrgs = memberOrgsResult.data
-      for (const membership of memberOrgs) {
+    if (memberOrgsResult.success) {
+      for (const membership of memberOrgsResult.data) {
+        if (orgMap.has(membership.organizationId)) continue
         const orgResult = await context.repositories.organizations.findById(
           membership.organizationId,
         )
-        if (isSuccess(orgResult) && orgResult.data) {
-          organizations.push({
+        if (orgResult.success && orgResult.data) {
+          orgMap.set(membership.organizationId, {
             ...orgResult.data,
             role: membership.role,
           })
         }
       }
     }
+
+    const organizations = Array.from(orgMap.values())
 
     return {
       content: [

@@ -1,5 +1,6 @@
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 // Create Resource Tool
 const createResourceTool = {
@@ -38,18 +39,18 @@ const createResourceTool = {
     let targetProjectId = args.projectId
     if (args.taskId && !args.projectId) {
       const taskResult = await context.repositories.tasks.findById(args.taskId)
-      if (taskResult.isErr() || !taskResult.value) {
+      if (isFailure(taskResult) || !taskResult.data) {
         return {
           content: [{ type: 'text', text: 'Task not found' }],
           isError: true,
         }
       }
-      targetProjectId = taskResult.value.projectId
+      targetProjectId = taskResult.data.projectId
     }
 
     // Validate the project exists and user has access
     const projectResult = await context.repositories.projects.findById(targetProjectId)
-    if (projectResult.isErr() || !projectResult.value) {
+    if (isFailure(projectResult) || !projectResult.data) {
       return {
         content: [{ type: 'text', text: 'Project not found' }],
         isError: true,
@@ -57,7 +58,7 @@ const createResourceTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.value.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.data.organizationId, context)
     if (!hasAccess) {
       return {
         content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
@@ -89,14 +90,14 @@ const createResourceTool = {
       metadata: args.metadata || {},
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const resource = result.value
+    const resource = result.data
     return {
       content: [
         {
@@ -139,14 +140,14 @@ const getResourceTool = {
 
     const result = await context.repositories.resources.findById(args.resourceId)
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const resource = result.value
+    const resource = result.data
     if (!resource) {
       return {
         content: [{ type: 'text', text: 'Resource not found' }],
@@ -156,7 +157,7 @@ const getResourceTool = {
 
     // Get the project to check organization access
     const projectResult = await context.repositories.projects.findById(resource.projectId)
-    if (projectResult.isErr() || !projectResult.value) {
+    if (isFailure(projectResult) || !projectResult.data) {
       return {
         content: [{ type: 'text', text: 'Project not found' }],
         isError: true,
@@ -164,7 +165,7 @@ const getResourceTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.value.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.data.organizationId, context)
     if (!hasAccess) {
       return {
         content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
@@ -218,13 +219,13 @@ const listResourcesTool = {
     if (args.taskId) {
       // If taskId is provided, get resources for that task's project
       const taskResult = await context.repositories.tasks.findById(args.taskId)
-      if (taskResult.isErr() || !taskResult.value) {
+      if (isFailure(taskResult) || !taskResult.data) {
         return {
           content: [{ type: 'text', text: 'Task not found' }],
           isError: true,
         }
       }
-      resourcesResult = await context.repositories.resources.findByProjectId(taskResult.value.projectId)
+      resourcesResult = await context.repositories.resources.findByProjectId(taskResult.data.projectId)
     } else if (args.projectId) {
       // If projectId is provided, get resources for that project
       resourcesResult = await context.repositories.resources.findByProjectId(args.projectId)
@@ -237,14 +238,14 @@ const listResourcesTool = {
       }
     }
 
-    if (resourcesResult.isErr()) {
+    if (isFailure(resourcesResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${resourcesResult.error.message}` }],
         isError: true,
       }
     }
 
-    let resources = resourcesResult.value
+    let resources = resourcesResult.data
 
     // Filter by type if specified
     if (args.type) {
@@ -252,9 +253,21 @@ const listResourcesTool = {
     }
 
     // Get the project to check organization access
-    const projectId = args.projectId || (await context.repositories.tasks.findById(args.taskId)).value?.projectId
+    let projectId = args.projectId
+    if (!projectId && args.taskId) {
+      const taskForProject = await context.repositories.tasks.findById(args.taskId)
+      if (isSuccess(taskForProject) && taskForProject.data) {
+        projectId = taskForProject.data.projectId
+      }
+    }
+    if (!projectId) {
+      return {
+        content: [{ type: 'text', text: 'Project not found' }],
+        isError: true,
+      }
+    }
     const projectResult = await context.repositories.projects.findById(projectId)
-    if (projectResult.isErr() || !projectResult.value) {
+    if (isFailure(projectResult) || !projectResult.data) {
       return {
         content: [{ type: 'text', text: 'Project not found' }],
         isError: true,
@@ -262,7 +275,7 @@ const listResourcesTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.value.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.data.organizationId, context)
     if (!hasAccess) {
       return {
         content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
@@ -311,18 +324,18 @@ const deleteResourceTool = {
 
     // Get the resource first to check access
     const resourceResult = await context.repositories.resources.findById(args.resourceId)
-    if (resourceResult.isErr() || !resourceResult.value) {
+    if (isFailure(resourceResult) || !resourceResult.data) {
       return {
         content: [{ type: 'text', text: 'Resource not found' }],
         isError: true,
       }
     }
 
-    const resource = resourceResult.value
+    const resource = resourceResult.data
 
     // Get the project to check organization access
     const projectResult = await context.repositories.projects.findById(resource.projectId)
-    if (projectResult.isErr() || !projectResult.value) {
+    if (isFailure(projectResult) || !projectResult.data) {
       return {
         content: [{ type: 'text', text: 'Project not found' }],
         isError: true,
@@ -330,7 +343,7 @@ const deleteResourceTool = {
     }
 
     // Check if user has access to the organization
-    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.value.organizationId, context)
+    const hasAccess = await validateOrganizationAccess(context.userId, projectResult.data.organizationId, context)
     if (!hasAccess) {
       return {
         content: [{ type: 'text', text: 'Access denied. You are not a member of this organization.' }],
@@ -340,7 +353,7 @@ const deleteResourceTool = {
 
     const result = await context.repositories.resources.delete(args.resourceId)
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,

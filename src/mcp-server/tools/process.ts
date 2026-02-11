@@ -1,5 +1,6 @@
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 // Process Execution interface
 export interface ProcessExecution {
@@ -70,14 +71,14 @@ const createProcessTool = {
       createdById: context.userId,
     })
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const process = result.value
+    const process = result.data
     return {
       content: [
         {
@@ -118,14 +119,14 @@ const getProcessTool = {
 
     const result = await context.repositories.processes.findById(args.processId)
 
-    if (result.isErr()) {
+    if (isFailure(result)) {
       return {
         content: [{ type: 'text', text: `Error: ${result.error.message}` }],
         isError: true,
       }
     }
 
-    const process = result.value
+    const process = result.data
     if (!process) {
       return {
         content: [{ type: 'text', text: 'Process not found' }],
@@ -199,14 +200,14 @@ const listProcessesTool = {
       processesResult = await context.repositories.processes.findByOrganizationId(args.organizationId)
     }
 
-    if (processesResult.isErr()) {
+    if (isFailure(processesResult)) {
       return {
         content: [{ type: 'text', text: `Error: ${processesResult.error.message}` }],
         isError: true,
       }
     }
 
-    const processes = processesResult.value
+    const processes = processesResult.data
     return {
       content: [
         {
@@ -248,14 +249,14 @@ const startProcessExecutionTool = {
 
     // Get the process
     const processResult = await context.repositories.processes.findById(args.processId)
-    if (processResult.isErr() || !processResult.value) {
+    if (isFailure(processResult) || !processResult.data) {
       return {
         content: [{ type: 'text', text: 'Process not found' }],
         isError: true,
       }
     }
 
-    const process = processResult.value
+    const process = processResult.data
 
     // Check if user has access to the organization
     const hasAccess = await validateOrganizationAccess(context.userId, process.organizationId, context)
@@ -412,14 +413,14 @@ const getProcessAnalyticsTool = {
 
     // Get the process
     const processResult = await context.repositories.processes.findById(args.processId)
-    if (processResult.isErr() || !processResult.value) {
+    if (isFailure(processResult) || !processResult.data) {
       return {
         content: [{ type: 'text', text: 'Process not found' }],
         isError: true,
       }
     }
 
-    const process = processResult.value
+    const process = processResult.data
 
     // Check if user has access to the organization
     const hasAccess = await validateOrganizationAccess(context.userId, process.organizationId, context)
@@ -433,17 +434,12 @@ const getProcessAnalyticsTool = {
     // Note: In a real implementation, we would calculate actual analytics
     // For this example, we'll return simulated data
     const period = args.period || 'month'
-    const analytics = {
-      totalExecutions: 42,
-      averageCompletionTime: '3.5 days',
-      successRate: '87.5%',
-      bottleneckSteps: ['step-2', 'step-4'],
-      recentActivity: {
-        week: { executions: 5, averageTime: '2.8 days' },
-        month: { executions: 18, averageTime: '3.2 days' },
-        quarter: { executions: 42, averageTime: '3.5 days' },
-      },
+    const recentActivity = {
+      week: { executions: 5, averageTime: '2.8 days' },
+      month: { executions: 18, averageTime: '3.2 days' },
+      quarter: { executions: 42, averageTime: '3.5 days' },
     }
+    const periodActivity = recentActivity[period as keyof typeof recentActivity] || recentActivity.month
 
     return {
       content: [
@@ -452,12 +448,12 @@ const getProcessAnalyticsTool = {
           text: JSON.stringify({
             processId: args.processId,
             period: period,
-            analytics: analytics[period] || analytics.month,
+            analytics: periodActivity,
             overall: {
-              totalExecutions: analytics.totalExecutions,
-              averageCompletionTime: analytics.averageCompletionTime,
-              successRate: analytics.successRate,
-              bottleneckSteps: analytics.bottleneckSteps,
+              totalExecutions: 42,
+              averageCompletionTime: '3.5 days',
+              successRate: '87.5%',
+              bottleneckSteps: ['step-2', 'step-4'],
             },
           }, null, 2),
         },

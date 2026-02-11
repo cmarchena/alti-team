@@ -186,7 +186,7 @@ export default function TeamsPage() {
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No team members</h3>
             <p className="mt-1 text-sm text-gray-500">
-              You don't have any team members yet. Invite people to your organizations.
+              You don&apos;t have any team members yet. Invite people to your organizations.
             </p>
           </div>
         ) : (
@@ -377,7 +377,7 @@ export default function TeamsPage() {
             <div className="px-6 py-4">
               <p className="text-sm text-gray-500">
                 Are you sure you want to remove <strong>{selectedMember.user.name || selectedMember.user.email}</strong> from{" "}
-                {selectedMember.organization.name}? They will lose access to this organization's resources.
+                {selectedMember.organization.name}? They will lose access to this organization&apos;s resources.
               </p>
               {error && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">

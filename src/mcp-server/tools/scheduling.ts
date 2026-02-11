@@ -1,5 +1,6 @@
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 registerTool({
   name: 'suggest_task_schedule',
@@ -53,22 +54,22 @@ registerTool({
         args.projectId,
       )
 
-      if (projectResult.isErr() || !projectResult.value) {
+      if (isFailure(projectResult) || !projectResult.data) {
         return {
           content: [{ type: 'text', text: 'Project not found' }],
           isError: true,
         }
       }
 
-      const project = projectResult.value
+      const project = projectResult.data
 
-      const orgAccessResult = await validateOrganizationAccess(
+      const hasAccess = await validateOrganizationAccess(
         context.userId,
         project.organizationId,
         context,
       )
 
-      if (orgAccessResult.isErr()) {
+      if (!hasAccess) {
         return {
           content: [{ type: 'text', text: 'Access denied to this project' }],
           isError: true,
@@ -79,19 +80,19 @@ registerTool({
         args.projectId,
       )
 
-      if (tasksResult.isErr()) {
+      if (isFailure(tasksResult)) {
         return {
           content: [{ type: 'text', text: 'Failed to fetch tasks' }],
           isError: true,
         }
       }
 
-      const tasks = tasksResult.value || []
+      const tasks = tasksResult.data || []
       const pendingTasks = tasks.filter((t) => t.status !== 'done')
       const teamMembersResult =
         await context.repositories.teamMembers.findByProjectId(args.projectId)
-      const teamMembers = teamMembersResult.isOk()
-        ? teamMembersResult.value || []
+      const teamMembers = isSuccess(teamMembersResult)
+        ? teamMembersResult.data || []
         : []
 
       const maxHoursPerDay = args.constraints?.maxHoursPerDay || 8
@@ -99,132 +100,185 @@ registerTool({
 
       const suggestions: any[] = []
 
-      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
-      const sortedByPriority = pendingTasks.sort((a, b) => {
-        const aPriority = priorityTasks.includes(a.id)
-          ? -1
-          : (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2)
-        const bPriority = priorityTasks.includes(b.id)
-          ? -1
-          : (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2)
-        return aPriority - bPriority
-      })
+      // Group tasks by priority
+      const urgentTasks = pendingTasks.filter(
+        (t) => t.priority === 'urgent',
+      )
+      const highPriorityTasks = pendingTasks.filter(
+        (t) => t.priority === 'high',
+      )
+      const normalTasks = pendingTasks.filter(
+        (t) => t.priority === 'normal' || !t.priority,
+      )
+      const lowPriorityTasks = pendingTasks.filter(
+        (t) => t.priority === 'low',
+      )
 
-      const assigneeWorkload = new Map<string, number>()
-      for (const task of sortedByPriority) {
-        if (task.assignedToId) {
-          const current = assigneeWorkload.get(task.assignedToId) || 0
-          assigneeWorkload.set(task.assignedToId, current + 4)
-        }
+      // Sort each group by due date
+      const sortByDueDate = (a: any, b: any) => {
+        if (!a.dueDate) return 1
+        if (!b.dueDate) return -1
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       }
 
-      let dayOffset = 0
-      for (const task of sortedByPriority) {
-        let suggestedAssignee: string | null = null
-        let minLoad = Infinity
+      urgentTasks.sort(sortByDueDate)
+      highPriorityTasks.sort(sortByDueDate)
+      normalTasks.sort(sortByDueDate)
+      lowPriorityTasks.sort(sortByDueDate)
 
-        for (const member of teamMembers) {
-          const load = assigneeWorkload.get(member.userId) || 0
-          if (load < minLoad) {
-            minLoad = load
-            suggestedAssignee = member.userId
-          }
+      // Generate suggestions for urgent tasks
+      for (const task of urgentTasks) {
+        if (teamMembers.length === 0) {
+          suggestions.push({
+            taskId: task.id,
+            taskTitle: task.title,
+            priority: 'urgent',
+            suggestion: 'No team members available. Consider adding team members to the project.',
+            suggestedAssignee: null,
+            suggestedDeadline: task.dueDate || 'Not set',
+            reasoning: 'Task is urgent but no one is available',
+          })
+          continue
         }
 
-        if (task.assignedToId) {
-          suggestedAssignee = task.assignedToId
-        }
-
-        const estimatedHours = 4
-        const daysNeeded = Math.ceil(estimatedHours / maxHoursPerDay)
-
-        const startDate = new Date()
-        startDate.setDate(startDate.getDate() + dayOffset)
-        const endDate = new Date(startDate)
-        endDate.setDate(endDate.getDate() + daysNeeded)
-
-        const hasDeadline = task.dueDate && new Date(task.dueDate) < endDate
-        const deadlineWarning = hasDeadline
-          ? ' ⚠️ Task deadline may be at risk - consider starting earlier'
-          : ''
-
-        const memberName =
-          teamMembers.find((m) => m.userId === suggestedAssignee)?.position ||
-          'unassigned'
-        const reasoning =
-          task.priority === 'urgent'
-            ? 'Urgent priority - scheduled immediately'
-            : task.priority === 'high'
-              ? 'High priority - scheduled after urgent tasks'
-              : `Balanced workload - ${memberName} has lowest current load`
+        // Find team member with least tasks
+        const memberWithLeastTasks = teamMembers.reduce(
+          (min, member) => {
+            const memberTasks = pendingTasks.filter(
+              (t) => t.assignedToId === member.userId,
+            )
+            return memberTasks.length < min.count
+              ? { member, count: memberTasks.length }
+              : min
+          },
+          { member: teamMembers[0], count: Infinity },
+        )
 
         suggestions.push({
           taskId: task.id,
-          title: task.title,
-          suggestedAssignee,
-          suggestedStartDate: startDate.toISOString().split('T')[0],
-          suggestedEndDate: endDate.toISOString().split('T')[0],
-          priority: task.priority,
-          reasoning: reasoning + deadlineWarning,
-          estimatedHours,
+          taskTitle: task.title,
+          priority: 'urgent',
+          suggestion: 'Assign to available team member immediately',
+          suggestedAssignee: memberWithLeastTasks.member?.userId || null,
+          suggestedDeadline: task.dueDate || 'ASAP',
+          reasoning: 'Urgent priority task with closest deadline',
         })
-
-        if (suggestedAssignee) {
-          const current = assigneeWorkload.get(suggestedAssignee) || 0
-          assigneeWorkload.set(suggestedAssignee, current + estimatedHours)
-        }
-
-        if (task.priority === 'urgent' || task.priority === 'high') {
-          dayOffset += Math.ceil(daysNeeded / teamMembers.length) || 1
-        }
       }
 
-      const teamCapacity = teamMembers.length * maxHoursPerDay * 7
-      const totalEstimatedHours = suggestions.reduce(
-        (sum, s) => sum + s.estimatedHours,
-        0,
-      )
-      const projectedWeeks = Math.ceil(totalEstimatedHours / teamCapacity) || 1
+      // Generate suggestions for high priority tasks
+      for (const task of highPriorityTasks.slice(0, 5)) {
+        const memberWithLeastTasks = teamMembers.reduce(
+          (min, member) => {
+            const memberTasks = pendingTasks.filter(
+              (t) => t.assignedToId === member.userId,
+            )
+            return memberTasks.length < min.count
+              ? { member, count: memberTasks.length }
+              : min
+          },
+          { member: teamMembers[0], count: Infinity },
+        )
 
-      const output = {
-        project: project.name,
-        scheduleSuggestions: suggestions,
-        summary: {
-          totalTasks: suggestions.length,
+        suggestions.push({
+          taskId: task.id,
+          taskTitle: task.title,
+          priority: 'high',
+          suggestion: 'Schedule for next available slot',
+          suggestedAssignee: memberWithLeastTasks.member?.userId || null,
+          suggestedDeadline: task.dueDate || 'This week',
+          reasoning: 'High priority task with upcoming deadline',
+        })
+      }
+
+      // Generate suggestions for normal priority tasks
+      for (const task of normalTasks.slice(0, 5)) {
+        suggestions.push({
+          taskId: task.id,
+          taskTitle: task.title,
+          priority: 'normal',
+          suggestion: 'Schedule based on resource availability',
+          suggestedAssignee: null,
+          suggestedDeadline: task.dueDate || 'This sprint',
+          reasoning: 'Normal priority, scheduled based on capacity',
+        })
+      }
+
+      // Capacity overview
+      const capacityOverview = teamMembers.map((member) => {
+        const memberTasks = pendingTasks.filter(
+          (t) => t.assignedToId === member.userId,
+        )
+        const totalEstimatedHours = memberTasks.reduce(
+          (sum, t) => sum + ((t as any).estimatedHours || 4),
+          0,
+        )
+        const availableHours = maxHoursPerDay * 5 - totalEstimatedHours
+
+        return {
+          memberId: member.userId,
+          currentTasks: memberTasks.length,
           estimatedHours: totalEstimatedHours,
-          projectedWeeks,
-          teamCapacity: teamCapacity,
-          recommendation:
-            suggestions.length > teamMembers.length
-              ? 'Consider breaking high-effort tasks into smaller subtasks'
-              : 'Schedule appears balanced across team',
-        },
+          availableHours: Math.max(0, availableHours),
+          capacity: Math.round(
+            (totalEstimatedHours / (maxHoursPerDay * 5)) * 100,
+          ),
+        }
+      })
+
+      // Calculate project timeline
+      const totalTasks = pendingTasks.length
+      const tasksWithDeadlines = pendingTasks.filter((t) => t.dueDate)
+      const dates = tasksWithDeadlines.map((t) => new Date(t.dueDate!).getTime())
+      const minDate = dates.length > 0 ? Math.min(...dates) : Date.now()
+      const maxDate = dates.length > 0 ? Math.max(...dates) : Date.now()
+      const dayDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24)
+
+      const avgTasksPerDay = tasksWithDeadlines.length > 0 && dayDiff > 0
+        ? tasksWithDeadlines.length / dayDiff
+        : 0
+
+      const timelineEstimate = {
+        totalPendingTasks: totalTasks,
+        estimatedCompletionDays: Math.ceil(totalTasks / Math.max(1, avgTasksPerDay)),
+        recommendedSprintLength: Math.ceil(totalTasks / 5),
+        riskFactors: [] as string[],
+      }
+
+      if (urgentTasks.length > teamMembers.length) {
+        timelineEstimate.riskFactors.push(
+          'More urgent tasks than available team members',
+        )
+      }
+
+      if (capacityOverview.some((c) => c.capacity > 80)) {
+        timelineEstimate.riskFactors.push(
+          'Some team members are at or over 80% capacity',
+        )
+      }
+
+      if (tasksWithDeadlines.length === 0 && totalTasks > 0) {
+        timelineEstimate.riskFactors.push('No deadlines set for pending tasks')
       }
 
       return {
         content: [
           {
             type: 'text',
-            text:
-              `# Schedule Suggestions for "${output.project}"\n\n` +
-              `## Summary\n` +
-              `- **Total Tasks**: ${output.summary.totalTasks}\n` +
-              `- **Estimated Hours**: ${output.summary.estimatedHours}h\n` +
-              `- **Projected Duration**: ${output.summary.projectedWeeks} week(s)\n` +
-              `- **Recommendation**: ${output.summary.recommendation}\n\n` +
-              `## Schedule\n\n` +
-              suggestions
-                .map(
-                  (s, i) =>
-                    `${i + 1}. **${s.title}**\n` +
-                    `   - Priority: ${s.priority}\n` +
-                    `   - Assignee: ${teamMembers.find((m) => m.userId === s.suggestedAssignee)?.position || 'Unassigned'}\n` +
-                    `   - Start: ${s.suggestedStartDate}\n` +
-                    `   - End: ${s.suggestedEndDate}\n` +
-                    `   - Est. Hours: ${s.estimatedHours}h\n` +
-                    `   - Reasoning: ${s.reasoning}`,
-                )
-                .join('\n\n'),
+            text: JSON.stringify(
+              {
+                projectId: args.projectId,
+                totalPendingTasks: totalTasks,
+                urgentCount: urgentTasks.length,
+                highPriorityCount: highPriorityTasks.length,
+                normalCount: normalTasks.length,
+                lowCount: lowPriorityTasks.length,
+                suggestions: suggestions.slice(0, 10),
+                capacityOverview,
+                timelineEstimate,
+              },
+              null,
+              2,
+            ),
           },
         ],
       }
@@ -233,7 +287,9 @@ registerTool({
         content: [
           {
             type: 'text',
-            text: `Error generating schedule suggestions: ${error instanceof Error ? error.message : String(error)}`,
+            text: `Error generating schedule suggestions: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           },
         ],
         isError: true,
@@ -243,28 +299,17 @@ registerTool({
 })
 
 registerTool({
-  name: 'optimize_team_workload',
-  description:
-    'Optimize task distribution across team members to balance workload and meet deadlines',
+  name: 'get_team_workload',
+  description: 'Get team workload overview for a project',
   inputSchema: {
     type: 'object',
     properties: {
-      teamId: {
+      projectId: {
         type: 'string',
-        description: 'The team ID to optimize workload for',
-      },
-      period: {
-        type: 'string',
-        enum: ['week', 'sprint', 'month'],
-        description: 'The time period to optimize for',
-      },
-      optimizeFor: {
-        type: 'string',
-        enum: ['deadlines', 'balance', 'efficiency'],
-        description: 'What to prioritize in optimization',
+        description: 'The project ID to get workload for',
       },
     },
-    required: ['teamId', 'period'],
+    required: ['projectId'],
   },
   handler: async (args: any, context: MCPServerContext) => {
     if (!context.userId) {
@@ -275,233 +320,86 @@ registerTool({
     }
 
     try {
-      const teamResult = await context.repositories.teams.findById(args.teamId)
-
-      if (teamResult.isErr() || !teamResult.value) {
+      const teamResult = await context.repositories.teamMembers.findByProjectId(
+        args.projectId,
+      )
+      if (isFailure(teamResult) || !teamResult.data) {
         return {
-          content: [{ type: 'text', text: 'Team not found' }],
+          content: [{ type: 'text', text: 'Project not found' }],
           isError: true,
         }
       }
 
-      const team = teamResult.value
+      const team = teamResult.data
 
-      const orgAccessResult = await validateOrganizationAccess(
+      const hasAccess = await validateOrganizationAccess(
         context.userId,
-        team.organizationId,
+        team[0]?.organizationId || '',
         context,
       )
 
-      if (orgAccessResult.isErr()) {
+      if (!hasAccess) {
         return {
-          content: [{ type: 'text', text: 'Access denied to this team' }],
+          content: [{ type: 'text', text: 'Access denied to this project' }],
           isError: true,
         }
       }
 
-      const teamMembersResult =
-        await context.repositories.teamMembers.findByOrganizationId(
-          team.organizationId,
+      const allTasksResult = await context.repositories.tasks.findByAssignedToId('')
+      const allTasks = isSuccess(allTasksResult) ? allTasksResult.data || [] : []
+
+      const workloadData = team.map((member) => {
+        const memberTasks = allTasks.filter(
+          (t) => t.assignedToId === member.userId && t.status !== 'done',
         )
-      const teamMembers = teamMembersResult.isOk()
-        ? teamMembersResult.value?.filter(
-            (m) => m.role === 'member' || m.role === 'lead',
-          ) || []
-        : []
 
-      const teamUserIds = teamMembers.map((m) => m.userId)
-
-      const allTasksResult =
-        await context.repositories.tasks.findByAssignedToId('')
-      const allTasks = allTasksResult.isOk() ? allTasksResult.value || [] : []
-
-      const periodDays = { week: 7, sprint: 14, month: 30 }
-      const days = periodDays[args.period as keyof typeof periodDays]
-      const now = new Date()
-      const periodEnd = new Date(now)
-      periodEnd.setDate(periodEnd.getDate() + days)
-
-      const relevantTasks = allTasks.filter((task) => {
-        const assigned =
-          task.assignedToId && teamUserIds.includes(task.assignedToId)
-        const inPeriod = task.dueDate && new Date(task.dueDate) <= periodEnd
-        return assigned && inPeriod && task.status !== 'done'
-      })
-
-      const memberWorkloads: any[] = []
-
-      for (const member of teamMembers) {
-        const memberTasks = relevantTasks.filter(
-          (t) => t.assignedToId === member.userId,
+        const overdueTasks = memberTasks.filter(
+          (t) => t.dueDate && new Date(t.dueDate) < new Date(),
         )
-        const totalHours = memberTasks.reduce((sum, t) => sum + 4, 0)
 
-        memberWorkloads.push({
+        return {
           memberId: member.userId,
-          name: member.position || member.role,
-          currentHours: totalHours,
-          taskCount: memberTasks.length,
-          tasks: memberTasks.map((t) => ({
-            id: t.id,
-            title: t.title,
-            hours: 4,
-            dueDate: t.dueDate?.toString() || 'No deadline',
-          })),
-        })
-      }
-
-      const totalHours = memberWorkloads.reduce(
-        (sum, m) => sum + m.currentHours,
-        0,
-      )
-      const targetHours = totalHours / memberWorkloads.length || 0
-      const maxAllowed = targetHours * 1.2
-      const overloaded = memberWorkloads.filter(
-        (m) => m.currentHours > maxAllowed,
-      )
-      const underloaded = memberWorkloads.filter(
-        (m) => m.currentHours < targetHours * 0.8,
-      )
-
-      const suggestions: any[] = []
-
-      if (
-        overloaded.length > 0 &&
-        underloaded.length > 0 &&
-        args.optimizeFor !== 'efficiency'
-      ) {
-        const sortedOverloaded = [...overloaded].sort(
-          (a, b) => b.currentHours - a.currentHours,
-        )
-        const sortedUnderloaded = [...underloaded].sort(
-          (a, b) => a.currentHours - b.currentHours,
-        )
-
-        for (const overloadedMember of sortedOverloaded) {
-          for (const task of overloadedMember.tasks) {
-            if (overloadedMember.currentHours - task.hours >= targetHours) {
-              const underloadedMember = sortedUnderloaded.find(
-                (m) => m.memberId !== overloadedMember.memberId,
-              )
-              if (underloadedMember) {
-                suggestions.push({
-                  fromMember: overloadedMember.name,
-                  toMember: underloadedMember.name,
-                  taskId: task.id,
-                  taskTitle: task.title,
-                  reason: 'Rebalance workload to meet deadlines',
-                })
-
-                overloadedMember.currentHours -= task.hours
-                underloadedMember.currentHours += task.hours
-                underloadedMember.tasks.push(task)
-                overloadedMember.tasks = overloadedMember.tasks.filter(
-                  (t: any) => t.id !== task.id,
-                )
-
-                if (
-                  overloadedMember.currentHours <= maxAllowed ||
-                  suggestions.length >= 3
-                )
-                  break
-              }
-            }
-          }
-          if (suggestions.length >= 3) break
+          role: member.role,
+          position: member.position,
+          activeTasks: memberTasks.length,
+          overdueTasks: overdueTasks.length,
+          upcomingDeadlines: memberTasks
+            .filter((t) => t.dueDate)
+            .sort(
+              (a, b) =>
+                new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime(),
+            )
+            .slice(0, 3)
+            .map((t) => ({
+              taskId: t.id,
+              title: t.title,
+              dueDate: t.dueDate,
+              priority: t.priority,
+            })),
         }
-      }
-
-      const bottlenecks = relevantTasks
-        .filter((t) => {
-          const daysUntilDue = Math.ceil(
-            (new Date(t.dueDate!).getTime() - now.getTime()) /
-              (1000 * 60 * 60 * 24),
-          )
-          return daysUntilDue < 1 || (daysUntilDue < 2 && 4 > 8)
-        })
-        .map((t) => ({
-          taskId: t.id,
-          title: t.title,
-          dueDate: t.dueDate?.toString(),
-          assignee:
-            teamMembers.find((m) => m.userId === t.assignedToId)?.position ||
-            'Unknown',
-        }))
-
-      const output = {
-        team: team.name,
-        period: args.period,
-        workloads: memberWorkloads.map((m: any) => ({
-          member: m.name,
-          hours: m.currentHours,
-          tasks: m.taskCount,
-          status:
-            m.currentHours > maxAllowed
-              ? 'Overloaded'
-              : m.currentHours < targetHours * 0.5
-                ? 'Underutilized'
-                : 'Balanced',
-        })),
-        optimization: {
-          totalHours,
-          targetPerMember: Math.round(targetHours * 10) / 10,
-          overloaded: overloaded.map((m: any) => m.name),
-          underloaded: underloaded.map((m: any) => m.name),
-          suggestions,
-        },
-        risks: {
-          bottlenecks,
-          recommendation:
-            bottlenecks.length > 0
-              ? 'Consider reassigning bottleneck tasks or extending deadlines'
-              : 'No immediate risks detected',
-        },
-      }
-
-      const workloadsTable = output.workloads
-        .map(
-          (w: any) =>
-            `| ${w.member} | ${w.hours}h | ${w.tasks} tasks | ${w.status} |`,
-        )
-        .join('\n')
+      })
 
       return {
         content: [
           {
             type: 'text',
-            text:
-              `# Team Workload Analysis: "${output.team}"\n` +
-              `**Period**: ${output.period}\n\n` +
-              `## Current Workloads\n\n` +
-              `| Member | Hours | Tasks | Status |\n` +
-              `|--------|-------|-------|--------|\n` +
-              `${workloadsTable}\n\n` +
-              `## Optimization\n\n` +
-              `- **Total Hours**: ${output.optimization.totalHours}h\n` +
-              `- **Target per Member**: ${output.optimization.targetPerMember}h\n` +
-              `- **Overloaded**: ${output.optimization.overloaded.join(', ') || 'None'}\n` +
-              `- **Underutilized**: ${output.optimization.underloaded.join(', ') || 'None'}\n\n` +
-              `### Suggestions\n\n` +
-              (suggestions.length > 0
-                ? suggestions
-                    .map(
-                      (s: any) =>
-                        `- Move "${s.taskTitle}" from ${s.fromMember} → ${s.toMember}\n  Reason: ${s.reason}`,
-                    )
-                    .join('\n\n')
-                : '- No rebalancing suggestions at this time\n\n') +
-              `## Risks & Recommendations\n\n` +
-              `- **Bottlenecks**: ${bottlenecks.length} tasks at risk\n` +
-              `- **Recommendation**: ${output.risks.recommendation}\n\n` +
-              (bottlenecks.length > 0
-                ? `### Critical Tasks\n\n` +
-                  bottlenecks
-                    .map(
-                      (b: any) =>
-                        `- "${b.title}" (Due: ${b.dueDate}, Assigned: ${b.assignee})`,
-                    )
-                    .join('\n')
-                : ''),
+            text: JSON.stringify(
+              {
+                projectId: args.projectId,
+                teamSize: team.length,
+                workload: workloadData,
+                summary: {
+                  totalActiveTasks: workloadData.reduce((sum, m) => sum + m.activeTasks, 0),
+                  totalOverdue: workloadData.reduce((sum, m) => sum + m.overdueTasks, 0),
+                  avgTasksPerMember: Math.round(
+                    workloadData.reduce((sum, m) => sum + m.activeTasks, 0) /
+                      Math.max(1, workloadData.length),
+                  ),
+                },
+              },
+              null,
+              2,
+            ),
           },
         ],
       }
@@ -510,7 +408,9 @@ registerTool({
         content: [
           {
             type: 'text',
-            text: `Error optimizing workload: ${error instanceof Error ? error.message : String(error)}`,
+            text: `Error fetching team workload: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           },
         ],
         isError: true,

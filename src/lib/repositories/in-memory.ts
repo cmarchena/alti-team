@@ -78,7 +78,126 @@ let notifications = getGlobalArray<Notification>('notifications')
 let comments = getGlobalArray<Comment>('comments')
 let teams = getGlobalArray<Team>('teams')
 let conversations = getGlobalArray<Conversation>('conversations')
-let conversationMessages = getGlobalArray<ConversationMessage>('conversationMessages')
+let conversationMessages = getGlobalArray<ConversationMessage>(
+  'conversationMessages',
+)
+
+if (organizations.length === 0) {
+  organizations.push({
+    id: 'org-1',
+    name: 'Acme Corp',
+    description: 'A sample organization for testing',
+    ownerId: 'user-1',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+}
+
+if (departments.length === 0) {
+  departments.push(
+    {
+      id: 'dept-1',
+      name: 'Engineering',
+      description: 'Software Engineering Team',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'dept-2',
+      name: 'Design',
+      description: 'Product Design Team',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'dept-3',
+      name: 'Frontend',
+      description: 'Frontend Development',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  )
+}
+
+if (teamMembers.length === 0) {
+  teamMembers.push(
+    {
+      id: 'tm-1',
+      userId: 'user-1',
+      organizationId: 'org-1',
+      departmentId: 'dept-1',
+      role: 'ADMIN',
+      position: 'CTO',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'tm-2',
+      userId: 'user-2',
+      organizationId: 'org-1',
+      departmentId: 'dept-1',
+      role: 'MEMBER',
+      position: 'Senior Developer',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'tm-3',
+      userId: 'user-3',
+      organizationId: 'org-1',
+      departmentId: 'dept-2',
+      role: 'MEMBER',
+      position: 'UX Designer',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'tm-4',
+      userId: 'user-4',
+      organizationId: 'org-1',
+      departmentId: 'dept-3',
+      role: 'VIEWER',
+      position: 'Project Manager',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  )
+}
+
+if (projects.length === 0) {
+  projects.push(
+    {
+      id: 'proj-1',
+      name: 'Website Redesign',
+      description: 'Complete redesign of company website',
+      status: 'IN_PROGRESS',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'proj-2',
+      name: 'Mobile App',
+      description: 'New mobile application for customers',
+      status: 'PLANNING',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'proj-3',
+      name: 'API Integration',
+      description: 'Third-party API integrations',
+      status: 'DONE',
+      organizationId: 'org-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  )
+}
 
 const MAX_MESSAGES_PER_CONVERSATION = 50
 
@@ -89,6 +208,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9)
 class InMemoryOrganizationRepository implements OrganizationRepository {
   async findById(id: string): Promise<Result<Organization | null>> {
     try {
+      console.log('Organizations array:', organizations)
       const organization = organizations.find((org) => org.id === id) || null
       return success(organization)
     } catch (error) {
@@ -1273,6 +1393,167 @@ class InMemoryConversationRepository implements ConversationRepository {
 
 // Create and export repositories
 export const createInMemoryRepositories = (): Repositories => {
+  console.log('=== createInMemoryRepositories called ===')
+  console.log('Initial users array:', users)
+  console.log('Initial organizations array:', organizations)
+
+  // Seed initial data if storage is empty
+  if (users.length === 0) {
+    const passwordHash =
+      '$2a$10$rOvHdKzn7VqnwGJQJZ9K.OJ7RvqK8.6Q7q3Z6v7Q8q9w8e7r6t5y4'
+    users.push(
+      {
+        id: 'user-1',
+        email: 'admin@example.com',
+        name: 'Admin User',
+        password: passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'user-2',
+        email: 'john@example.com',
+        name: 'John Developer',
+        password: passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'user-3',
+        email: 'jane@example.com',
+        name: 'Jane Designer',
+        password: passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'user-4',
+        email: 'bob@example.com',
+        name: 'Bob Manager',
+        password: passwordHash,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    )
+  }
+
+  if (organizations.length === 0) {
+    organizations.push({
+      id: 'org-1',
+      name: 'Acme Corp',
+      description: 'A sample organization for testing',
+      ownerId: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  }
+
+  if (departments.length === 0) {
+    departments.push(
+      {
+        id: 'dept-1',
+        name: 'Engineering',
+        description: 'Software Engineering Team',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'dept-2',
+        name: 'Design',
+        description: 'Product Design Team',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'dept-3',
+        name: 'Frontend',
+        description: 'Frontend Development',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    )
+  }
+
+  if (teamMembers.length === 0) {
+    teamMembers.push(
+      {
+        id: 'tm-1',
+        userId: 'user-1',
+        organizationId: 'org-1',
+        departmentId: 'dept-1',
+        role: 'ADMIN',
+        position: 'CTO',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'tm-2',
+        userId: 'user-2',
+        organizationId: 'org-1',
+        departmentId: 'dept-1',
+        role: 'MEMBER',
+        position: 'Senior Developer',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'tm-3',
+        userId: 'user-3',
+        organizationId: 'org-1',
+        departmentId: 'dept-2',
+        role: 'MEMBER',
+        position: 'UX Designer',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'tm-4',
+        userId: 'user-4',
+        organizationId: 'org-1',
+        departmentId: 'dept-3',
+        role: 'VIEWER',
+        position: 'Project Manager',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    )
+  }
+
+  if (projects.length === 0) {
+    projects.push(
+      {
+        id: 'proj-1',
+        name: 'Website Redesign',
+        description: 'Complete redesign of company website',
+        status: 'IN_PROGRESS',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'proj-2',
+        name: 'Mobile App',
+        description: 'New mobile application for customers',
+        status: 'PLANNING',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'proj-3',
+        name: 'API Integration',
+        description: 'Third-party API integrations',
+        status: 'DONE',
+        organizationId: 'org-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    )
+  }
+
   return {
     organizations: new InMemoryOrganizationRepository(),
     users: new InMemoryUserRepository(),

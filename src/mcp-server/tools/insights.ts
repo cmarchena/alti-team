@@ -1,6 +1,7 @@
 import { registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
 import { MCPServerContext } from '../index.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 registerTool({
   name: 'generate_ai_insights',
@@ -53,26 +54,26 @@ registerTool({
       const orgResult = await context.repositories.organizations.findById(
         args.organizationId,
       )
-      if (orgResult.isErr() || !orgResult.value) {
+      if (isFailure(orgResult) || !orgResult.data) {
         return {
           content: [{ type: 'text', text: 'Organization not found' }],
           isError: true,
         }
       }
 
-      const organization = orgResult.value
+      const organization = orgResult.data
       const projectsResult =
         await context.repositories.projects.findByOrganizationId(
           args.organizationId,
         )
-      const projects = projectsResult.isOk() ? projectsResult.value || [] : []
+      const projects = isSuccess(projectsResult) ? projectsResult.data || [] : []
 
       const teamMembersResult =
         await context.repositories.teamMembers.findByOrganizationId(
           args.organizationId,
         )
-      const teamMembers = teamMembersResult.isOk()
-        ? teamMembersResult.value || []
+      const teamMembers = isSuccess(teamMembersResult)
+        ? teamMembersResult.data || []
         : []
 
       const insights: {
@@ -92,7 +93,7 @@ registerTool({
         const tasksResult = await context.repositories.tasks.findByProjectId(
           project.id,
         )
-        const tasks = tasksResult.isOk() ? tasksResult.value || [] : []
+        const tasks = isSuccess(tasksResult) ? tasksResult.data || [] : []
 
         const overdueTasks = tasks.filter(
           (t) => t.dueDate && new Date(t.dueDate) < now && t.status !== 'done',
@@ -177,8 +178,8 @@ registerTool({
 
       const userTasksResult =
         await context.repositories.tasks.findByAssignedToId(context.userId)
-      const userTasks = userTasksResult.isOk()
-        ? userTasksResult.value || []
+      const userTasks = isSuccess(userTasksResult)
+        ? userTasksResult.data || []
         : []
 
       const myOverdue = userTasks.filter(
@@ -236,7 +237,7 @@ registerTool({
         const memberTasks = await context.repositories.tasks.findByAssignedToId(
           member.userId,
         )
-        const count = memberTasks.isOk() ? (memberTasks.value || []).length : 0
+        const count = isSuccess(memberTasks) ? (memberTasks.data || []).length : 0
         teamWorkload.push({
           name: member.position || member.role,
           taskCount: count,
@@ -431,7 +432,7 @@ registerTool({
         await context.repositories.projects.findByOrganizationId(
           args.organizationId,
         )
-      const projects = projectsResult.isOk() ? projectsResult.value || [] : []
+      const projects = isSuccess(projectsResult) ? projectsResult.data || [] : []
 
       const urgentItems: {
         type: string
@@ -444,7 +445,7 @@ registerTool({
         const tasksResult = await context.repositories.tasks.findByProjectId(
           project.id,
         )
-        const tasks = tasksResult.isOk() ? tasksResult.value || [] : []
+        const tasks = isSuccess(tasksResult) ? tasksResult.data || [] : []
 
         const overdueTasks = tasks.filter(
           (t) =>
@@ -476,8 +477,8 @@ registerTool({
 
       const userTasksResult =
         await context.repositories.tasks.findByAssignedToId(context.userId)
-      const userTasks = userTasksResult.isOk()
-        ? userTasksResult.value || []
+      const userTasks = isSuccess(userTasksResult)
+        ? userTasksResult.data || []
         : []
 
       for (const task of userTasks) {

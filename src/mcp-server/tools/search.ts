@@ -1,8 +1,9 @@
 import { MCPServerContext, registerTool } from '../index.js'
 import { validateOrganizationAccess } from '../auth.js'
+import { isFailure, isSuccess } from '../../lib/result.js'
 
 // Global Search Tool
-const globalSearchTool = {
+registerTool({
   name: 'global_search',
   description: 'Search across projects, tasks, resources, and more',
   inputSchema: {
@@ -51,14 +52,14 @@ const globalSearchTool = {
       try {
         // Get all projects the user has access to
         const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-        if (membersResult.isOk()) {
-          const orgIds = membersResult.value.map(m => m.organizationId)
-          const projectResults = []
+        if (isSuccess(membersResult)) {
+          const orgIds = membersResult.data?.map(m => m.organizationId) || []
+          const projectResults: any[] = []
           
           for (const orgId of orgIds) {
             const projectsResult = await context.repositories.projects.findByOrganizationId(orgId)
-            if (projectsResult.isOk()) {
-              projectResults.push(...projectsResult.value)
+            if (isSuccess(projectsResult)) {
+              projectResults.push(...(projectsResult.data || []))
             }
           }
           
@@ -86,17 +87,17 @@ const globalSearchTool = {
       try {
         // Get all projects the user has access to
         const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-        if (membersResult.isOk()) {
-          const orgIds = membersResult.value.map(m => m.organizationId)
-          const taskResults = []
+        if (isSuccess(membersResult)) {
+          const orgIds = membersResult.data?.map(m => m.organizationId) || []
+          const taskResults: any[] = []
           
           for (const orgId of orgIds) {
             const projectsResult = await context.repositories.projects.findByOrganizationId(orgId)
-            if (projectsResult.isOk()) {
-              for (const project of projectsResult.value) {
+            if (isSuccess(projectsResult)) {
+              for (const project of (projectsResult.data || [])) {
                 const tasksResult = await context.repositories.tasks.findByProjectId(project.id)
-                if (tasksResult.isOk()) {
-                  taskResults.push(...tasksResult.value)
+                if (isSuccess(tasksResult)) {
+                  taskResults.push(...(tasksResult.data || []))
                 }
               }
             }
@@ -127,17 +128,17 @@ const globalSearchTool = {
       try {
         // Get all projects the user has access to
         const membersResult = await context.repositories.teamMembers.findByUserId(context.userId)
-        if (membersResult.isOk()) {
-          const orgIds = membersResult.value.map(m => m.organizationId)
-          const resourceResults = []
+        if (isSuccess(membersResult)) {
+          const orgIds = membersResult.data?.map(m => m.organizationId) || []
+          const resourceResults: any[] = []
           
           for (const orgId of orgIds) {
             const projectsResult = await context.repositories.projects.findByOrganizationId(orgId)
-            if (projectsResult.isOk()) {
-              for (const project of projectsResult.value) {
+            if (isSuccess(projectsResult)) {
+              for (const project of (projectsResult.data || [])) {
                 const resourcesResult = await context.repositories.resources.findByProjectId(project.id)
-                if (resourcesResult.isOk()) {
-                  resourceResults.push(...resourcesResult.value)
+                if (isSuccess(resourcesResult)) {
+                  resourceResults.push(...(resourcesResult.data || []))
                 }
               }
             }
@@ -154,7 +155,6 @@ const globalSearchTool = {
             type: r.type,
             projectId: r.projectId,
             uploadedById: r.uploadedById,
-            type: 'resource',
           }))
         }
       } catch (error) {
@@ -166,8 +166,8 @@ const globalSearchTool = {
     if (entityTypes.includes('user')) {
       try {
         const usersResult = await context.repositories.users.search(query)
-        if (usersResult.isOk()) {
-          const filteredUsers = usersResult.value.slice(0, limit)
+        if (isSuccess(usersResult)) {
+          const filteredUsers = (usersResult.data || []).slice(0, limit)
           results.users = filteredUsers.map(u => ({
             id: u.id,
             name: u.name,
@@ -198,7 +198,4 @@ const globalSearchTool = {
       ],
     }
   },
-}
-
-// Register tools
-registerTool(globalSearchTool)
+})

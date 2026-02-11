@@ -360,7 +360,7 @@ export function createMockRepositories(): MockRepositories {
       },
       findByOrganizationId: async (organizationId: string) => {
         const projs = Array.from(projects.values()).filter(
-          (p) => p.organizationId === organizationId,
+          (p) => !organizationId || p.organizationId === organizationId,
         )
         return success(projs)
       },
