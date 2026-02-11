@@ -1,0 +1,6 @@
+[submodule "back"]
+	path = back
+	url = git@github.com:cmarchena/back.git
+[submodule "front"]
+	path = front
+	url = git@github.com:cmarchena/front.git
