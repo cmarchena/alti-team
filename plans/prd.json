@@ -1,0 +1,874 @@
+{
+  "projectName": "AltiTeam MCP Server & Client",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server and chat client that provides conversational access to AltiTeam project management features",
+  "overview": {
+    "purpose": "Enable users to manage projects, tasks, teams, and resources through natural language conversations powered by Claude",
+    "architecture": "MCP Server exposing AltiTeam features as tools + Chat UI client for natural language interactions",
+    "keyBenefits": [
+      "Natural language project management - no clicking through multiple screens",
+      "AI-powered insights and suggestions for project planning",
+      "Conversational task creation and updates",
+      "Quick access to data through chat queries",
+      "Automated workflows triggered by conversation"
+    ]
+  },
+  "features": {
+    "mcpServer": {
+      "server-001": {
+        "id": "server-001",
+        "title": "MCP Server Foundation",
+        "priority": "critical",
+        "status": "done",
+        "description": "Set up base MCP server with stdio transport and tool registration",
+        "implementation": "Create src/mcp-server/index.ts with MCP SDK, implement server initialization, tool registry, and stdio transport handler",
+        "dependencies": ["@modelcontextprotocol/sdk"],
+        "acceptanceCriteria": [
+          "Server starts and connects via stdio",
+          "Server responds to list_tools requests",
+          "Error handling and logging implemented"
+        ]
+      },
+      "server-002": {
+        "id": "server-002",
+        "title": "Repository Integration",
+        "priority": "critical",
+        "status": "done",
+        "description": "Connect MCP server to AltiTeam repository pattern for data access",
+        "implementation": "Import repository factory, implement database connection management, add environment-based switching (in-memory/PostgreSQL)",
+        "dependencies": ["server-001", "refactor-001"],
+        "acceptanceCriteria": [
+          "Server can access all repositories",
+          "Proper connection pooling for PostgreSQL",
+          "Graceful fallback to in-memory for development"
+        ]
+      },
+      "server-003": {
+        "id": "server-003",
+        "title": "Authentication Context",
+        "priority": "critical",
+        "status": "done",
+        "description": "Handle user authentication and session context in MCP server",
+        "implementation": "Implement authentication middleware, session token validation, user context injection into tool calls",
+        "dependencies": ["server-001"],
+        "acceptanceCriteria": [
+          "Each tool call includes authenticated user context",
+          "Invalid sessions are rejected with clear error messages",
+          "Support for API key and JWT token authentication"
+        ]
+      }
+    },
+
+    "userManagement": {
+      "user-mcp-001": {
+        "id": "user-mcp-001",
+        "title": "User Profile Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "MCP tools for viewing and updating user profiles",
+        "tools": [
+          {
+            "name": "get_my_profile",
+            "description": "Get current user's profile information",
+            "parameters": {}
+          },
+          {
+            "name": "update_my_profile",
+            "description": "Update current user's profile",
+            "parameters": {
+              "name": "string (optional)",
+              "email": "string (optional)",
+              "bio": "string (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/user.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "What's my profile?",
+          "Update my name to John Smith",
+          "Change my bio to 'Product Manager with 5 years experience'"
+        ]
+      },
+      "user-mcp-002": {
+        "id": "user-mcp-002",
+        "title": "User Search Tools",
+        "priority": "medium",
+        "status": "done",
+        "description": "Search and find users across organizations",
+        "tools": [
+          {
+            "name": "search_users",
+            "description": "Search for users by name or email",
+            "parameters": {
+              "query": "string",
+              "organizationId": "string (optional)",
+              "limit": "number (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/user.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Find users named Sarah",
+          "Who's in the engineering department?",
+          "Search for john@example.com"
+        ]
+      }
+    },
+
+    "organizationManagement": {
+      "org-mcp-001": {
+        "id": "org-mcp-001",
+        "title": "Organization CRUD Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Create, read, update, delete organizations via MCP",
+        "tools": [
+          {
+            "name": "create_organization",
+            "description": "Create a new organization",
+            "parameters": {
+              "name": "string",
+              "description": "string (optional)"
+            }
+          },
+          {
+            "name": "get_organization",
+            "description": "Get organization details",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "update_organization",
+            "description": "Update organization information",
+            "parameters": {
+              "organizationId": "string",
+              "name": "string (optional)",
+              "description": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_organization",
+            "description": "Delete an organization (owner only)",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "list_my_organizations",
+            "description": "List all organizations the user belongs to",
+            "parameters": {}
+          }
+        ],
+        "implementation": "src/mcp-server/tools/organization.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create an organization called Acme Corp",
+          "Show me my organizations",
+          "What's the description of organization xyz-123?",
+          "Rename organization xyz-123 to Acme Industries",
+          "Delete organization xyz-123"
+        ]
+      },
+      "org-mcp-002": {
+        "id": "org-mcp-002",
+        "title": "Organization Dashboard Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Get organization overview, metrics, and activity",
+        "tools": [
+          {
+            "name": "get_organization_dashboard",
+            "description": "Get dashboard data for an organization",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "get_organization_metrics",
+            "description": "Get key metrics for an organization",
+            "parameters": {
+              "organizationId": "string",
+              "period": "string (optional: week, month, quarter)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/organization.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Show me the dashboard for Acme Corp",
+          "What are our key metrics this month?",
+          "How many active projects do we have?"
+        ]
+      }
+    },
+
+    "projectManagement": {
+      "project-mcp-001": {
+        "id": "project-mcp-001",
+        "title": "Project CRUD Tools",
+        "priority": "critical",
+        "status": "done",
+        "description": "Create, read, update, delete projects via MCP",
+        "tools": [
+          {
+            "name": "create_project",
+            "description": "Create a new project",
+            "parameters": {
+              "organizationId": "string",
+              "name": "string",
+              "description": "string (optional)",
+              "startDate": "string (optional)",
+              "endDate": "string (optional)",
+              "status": "string (optional: planning, active, on-hold, completed)"
+            }
+          },
+          {
+            "name": "get_project",
+            "description": "Get project details",
+            "parameters": {
+              "projectId": "string"
+            }
+          },
+          {
+            "name": "update_project",
+            "description": "Update project information",
+            "parameters": {
+              "projectId": "string",
+              "name": "string (optional)",
+              "description": "string (optional)",
+              "status": "string (optional)",
+              "startDate": "string (optional)",
+              "endDate": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_project",
+            "description": "Delete a project",
+            "parameters": {
+              "projectId": "string"
+            }
+          },
+          {
+            "name": "list_projects",
+            "description": "List projects with optional filters",
+            "parameters": {
+              "organizationId": "string (optional)",
+              "status": "string (optional)",
+              "limit": "number (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/project.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a project called Website Redesign",
+          "Show me all active projects",
+          "Update the Q1 Marketing project status to completed",
+          "Delete the old prototype project"
+        ]
+      },
+
+      "project-mcp-002": {
+        "id": "project-mcp-002",
+        "title": "Project Template Tools",
+        "priority": "medium",
+        "status": "done",
+        "description": "Create and use project templates",
+        "tools": [
+          {
+            "name": "create_project_from_template",
+            "description": "Create a project from a template",
+            "parameters": {
+              "templateId": "string",
+              "organizationId": "string",
+              "name": "string",
+              "customizations": "object (optional)"
+            }
+          },
+          {
+            "name": "list_project_templates",
+            "description": "List available project templates",
+            "parameters": {
+              "organizationId": "string (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/project.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a new software development project from template",
+          "What project templates are available?",
+          "Start a marketing campaign using the template"
+        ]
+      },
+
+      "project-mcp-003": {
+        "id": "project-mcp-003",
+        "title": "Project Analytics Tools",
+        "priority": "medium",
+        "status": "done",
+        "description": "Get project analytics and insights",
+        "tools": [
+          {
+            "name": "get_project_analytics",
+            "description": "Get analytics for a project",
+            "parameters": {
+              "projectId": "string",
+              "metrics": "array (optional: completion, velocity, burndown)"
+            }
+          },
+          {
+            "name": "get_project_progress",
+            "description": "Get current progress of a project",
+            "parameters": {
+              "projectId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/project.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "How's the Website Redesign project progressing?",
+          "Show me analytics for all Q1 projects",
+          "What's the completion rate for project xyz?"
+        ]
+      }
+    },
+
+    "taskManagement": {
+      "task-mcp-001": {
+        "id": "task-mcp-001",
+        "title": "Task CRUD Tools",
+        "priority": "critical",
+        "status": "done",
+        "description": "Create, read, update, delete tasks via MCP",
+        "tools": [
+          {
+            "name": "create_task",
+            "description": "Create a new task",
+            "parameters": {
+              "projectId": "string",
+              "title": "string",
+              "description": "string (optional)",
+              "assigneeId": "string (optional)",
+              "dueDate": "string (optional)",
+              "priority": "string (optional: low, medium, high, urgent)",
+              "status": "string (optional: todo, in-progress, review, done)"
+            }
+          },
+          {
+            "name": "get_task",
+            "description": "Get task details",
+            "parameters": {
+              "taskId": "string"
+            }
+          },
+          {
+            "name": "update_task",
+            "description": "Update task information",
+            "parameters": {
+              "taskId": "string",
+              "title": "string (optional)",
+              "description": "string (optional)",
+              "assigneeId": "string (optional)",
+              "dueDate": "string (optional)",
+              "priority": "string (optional)",
+              "status": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_task",
+            "description": "Delete a task",
+            "parameters": {
+              "taskId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/task.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a task to design the homepage",
+          "Assign the API integration task to Sarah",
+          "Mark task xyz as done",
+          "Update the database migration task priority to urgent"
+        ]
+      },
+
+      "task-mcp-002": {
+        "id": "task-mcp-002",
+        "title": "Task Query Tools",
+        "priority": "critical",
+        "status": "done",
+        "description": "Search, filter, and list tasks",
+        "tools": [
+          {
+            "name": "list_tasks",
+            "description": "List tasks with filters",
+            "parameters": {
+              "projectId": "string (optional)",
+              "assigneeId": "string (optional)",
+              "status": "string (optional)",
+              "priority": "string (optional)",
+              "dueBefore": "string (optional)",
+              "dueAfter": "string (optional)",
+              "limit": "number (optional)"
+            }
+          },
+          {
+            "name": "search_tasks",
+            "description": "Search tasks by title or description",
+            "parameters": {
+              "query": "string",
+              "projectId": "string (optional)",
+              "limit": "number (optional)"
+            }
+          },
+          {
+            "name": "get_my_tasks",
+            "description": "Get tasks assigned to current user",
+            "parameters": {
+              "status": "string (optional)",
+              "dueToday": "boolean (optional)",
+              "overdue": "boolean (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/task.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "What are my tasks for today?",
+          "Show me all overdue tasks",
+          "List high priority tasks in the Website Redesign project",
+          "Find tasks related to authentication"
+        ]
+      },
+
+      "task-mcp-003": {
+        "id": "task-mcp-003",
+        "title": "Task Comment Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Add and view task comments",
+        "tools": [
+          {
+            "name": "add_task_comment",
+            "description": "Add a comment to a task",
+            "parameters": {
+              "taskId": "string",
+              "content": "string"
+            }
+          },
+          {
+            "name": "get_task_comments",
+            "description": "Get all comments for a task",
+            "parameters": {
+              "taskId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/task.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Add a comment to task xyz: 'This is blocked by the API work'",
+          "What are the comments on the design task?",
+          "Leave a note on the homepage task about the new requirements"
+        ]
+      }
+    },
+
+    "teamManagement": {
+      "team-mcp-001": {
+        "id": "team-mcp-001",
+        "title": "Team CRUD Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Create, read, update, delete teams",
+        "tools": [
+          {
+            "name": "create_team",
+            "description": "Create a new team",
+            "parameters": {
+              "organizationId": "string",
+              "name": "string",
+              "description": "string (optional)"
+            }
+          },
+          {
+            "name": "get_team",
+            "description": "Get team details",
+            "parameters": {
+              "teamId": "string"
+            }
+          },
+          {
+            "name": "list_teams",
+            "description": "List teams in organization",
+            "parameters": {
+              "organizationId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/team.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a team called Engineering",
+          "Show me all teams in Acme Corp",
+          "What's the Engineering team description?"
+        ]
+      },
+
+      "team-mcp-002": {
+        "id": "team-mcp-002",
+        "title": "Team Member Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Manage team membership",
+        "tools": [
+          {
+            "name": "add_team_member",
+            "description": "Add a member to a team",
+            "parameters": {
+              "teamId": "string",
+              "userId": "string",
+              "role": "string (optional: member, lead)"
+            }
+          },
+          {
+            "name": "remove_team_member",
+            "description": "Remove a member from a team",
+            "parameters": {
+              "teamId": "string",
+              "userId": "string"
+            }
+          },
+          {
+            "name": "list_team_members",
+            "description": "List all members of a team",
+            "parameters": {
+              "teamId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/team.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Add Sarah to the Engineering team",
+          "Who's on the Marketing team?",
+          "Remove John from the Design team"
+        ]
+      }
+    },
+
+    "departmentManagement": {
+      "dept-mcp-001": {
+        "id": "dept-mcp-001",
+        "title": "Department CRUD Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Create, read, update, delete departments",
+        "tools": [
+          {
+            "name": "create_department",
+            "description": "Create a new department",
+            "parameters": {
+              "organizationId": "string",
+              "name": "string",
+              "parentDepartmentId": "string (optional)",
+              "description": "string (optional)"
+            }
+          },
+          {
+            "name": "get_department",
+            "description": "Get department details",
+            "parameters": {
+              "departmentId": "string"
+            }
+          },
+          {
+            "name": "list_departments",
+            "description": "List departments in organization",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "get_department_hierarchy",
+            "description": "Get organizational hierarchy",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "update_department",
+            "description": "Update department information",
+            "parameters": {
+              "departmentId": "string",
+              "name": "string (optional)",
+              "description": "string (optional)",
+              "parentDepartmentId": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_department",
+            "description": "Delete a department",
+            "parameters": {
+              "departmentId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/department.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create a department called Sales",
+          "Show me the org chart",
+          "What departments are under Engineering?",
+          "Create a sub-department called Frontend under Engineering",
+          "Update the Sales department description",
+          "Delete the old department"
+        ]
+      }
+    },
+
+    "processManagement": {
+      "process-mcp-001": {
+        "id": "process-mcp-001",
+        "title": "Process CRUD Tools",
+        "priority": "medium",
+        "status": "done",
+        "description": "Create, read, update, delete business processes",
+        "tools": [
+          {
+            "name": "create_process",
+            "description": "Create a new process",
+            "parameters": {
+              "organizationId": "string",
+              "name": "string",
+              "description": "string (optional)",
+              "steps": "array of step objects"
+            }
+          },
+          {
+            "name": "get_process",
+            "description": "Get process details",
+            "parameters": {
+              "processId": "string"
+            }
+          },
+          {
+            "name": "list_processes",
+            "description": "List processes in organization",
+            "parameters": {
+              "organizationId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/process.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Create an onboarding process",
+          "What processes do we have?",
+          "Show me the employee onboarding process"
+        ]
+      },
+
+      "process-mcp-002": {
+        "id": "process-mcp-002",
+        "title": "Process Execution Tools",
+        "priority": "medium",
+        "status": "done",
+        "description": "Execute and track processes",
+        "tools": [
+          {
+            "name": "start_process",
+            "description": "Start a process execution",
+            "parameters": {
+              "processId": "string",
+              "context": "object (optional process variables)"
+            }
+          },
+          {
+            "name": "get_process_execution",
+            "description": "Get process execution status",
+            "parameters": {
+              "executionId": "string"
+            }
+          },
+          {
+            "name": "complete_process_step",
+            "description": "Mark a process step as complete",
+            "parameters": {
+              "executionId": "string",
+              "stepId": "string",
+              "output": "object (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/process.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Start the onboarding process for John",
+          "What's the status of the onboarding for Sarah?",
+          "Complete the 'Setup laptop' step for execution xyz"
+        ]
+      },
+
+      "process-mcp-003": {
+        "id": "process-mcp-003",
+        "title": "Process Analytics Tools",
+        "priority": "low",
+        "status": "done",
+        "description": "Get process performance analytics",
+        "tools": [
+          {
+            "name": "get_process_analytics",
+            "description": "Get analytics for a process",
+            "parameters": {
+              "processId": "string",
+              "period": "string (optional)"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/process.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "How long does onboarding usually take?",
+          "What's the bottleneck in our review process?",
+          "Show me analytics for the approval process"
+        ]
+      }
+    },
+
+    "resourceManagement": {
+      "resource-mcp-001": {
+        "id": "resource-mcp-001",
+        "title": "Resource CRUD Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Create, read, update, delete resources",
+        "tools": [
+          {
+            "name": "create_resource",
+            "description": "Create a new resource (file, link, note)",
+            "parameters": {
+              "projectId": "string (optional)",
+              "taskId": "string (optional)",
+              "type": "string (file, link, note)",
+              "name": "string",
+              "content": "string (for notes/links)",
+              "fileUrl": "string (for files)"
+            }
+          },
+          {
+            "name": "get_resource",
+            "description": "Get resource details",
+            "parameters": {
+              "resourceId": "string"
+            }
+          },
+          {
+            "name": "list_resources",
+            "description": "List resources",
+            "parameters": {
+              "projectId": "string (optional)",
+              "taskId": "string (optional)",
+              "type": "string (optional)"
+            }
+          },
+          {
+            "name": "delete_resource",
+            "description": "Delete a resource",
+            "parameters": {
+              "resourceId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/resource.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Add a link to the design mockups for the homepage project",
+          "Create a note with meeting minutes for task xyz",
+          "What resources are attached to the Website Redesign project?",
+          "Delete the old wireframe file"
+        ]
+      }
+    },
+
+    "memberManagement": {
+      "member-mcp-001": {
+        "id": "member-mcp-001",
+        "title": "Member Query Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "View organization and department members",
+        "tools": [
+          {
+            "name": "list_organization_members",
+            "description": "List all members in organization",
+            "parameters": {
+              "organizationId": "string",
+              "role": "string (optional: admin, member, viewer)"
+            }
+          },
+          {
+            "name": "get_member",
+            "description": "Get member details",
+            "parameters": {
+              "memberId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/member.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Who are the admins in Acme Corp?",
+          "List all members",
+          "Show me Sarah's role and permissions"
+        ]
+      },
+
+      "member-mcp-002": {
+        "id": "member-mcp-002",
+        "title": "Invitation Tools",
+        "priority": "high",
+        "status": "done",
+        "description": "Invite and manage member invitations",
+        "tools": [
+          {
+            "name": "invite_member",
+            "description": "Invite a new member to organization",
+            "parameters": {
+              "organizationId": "string",
+              "email": "string",
+              "role": "string (admin, member, viewer)",
+              "departmentId": "string (optional)"
+            }
+          },
+          {
+            "name": "list_pending_invitations",
+            "description": "List pending invitations",
+            "parameters": {
+              "organizationId": "string"
+            }
+          },
+          {
+            "name": "cancel_invitation",
+            "description": "Cancel a pending invitation",
+            "parameters": {
+              "invitationId": "string"
+            }
+          }
+        ],
+        "implementation": "src/mcp-server/tools/member.ts",
+        "dependencies": ["server-002"],
+        "chatExamples": [
+          "Invite john@example.com as an admin",
+          "What invitations are pending?",
+          "Cancel the invitation for sarah@example.com"
+        ]
+      }
+    }
+  }
+}
