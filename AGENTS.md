@@ -102,54 +102,15 @@ docker-compose down
 
 ### Error Handling
 
-Use `Result<T, E>` type from `@/lib/result` instead of exceptions:
-
-```typescript
-import { success, failure, isSuccess, isFailure } from '@/lib/result'
-
-function findUser(id: string): Result<User, 'not_found'> {
-  const user = users.find((u) => u.id === id)
-  if (!user) return failure('not_found')
-  return success(user)
-}
-
-const result = findUser('123')
-if (isSuccess(result)) {
-  console.log(result.data)
-}
-```
+Use `Result<T, E>` type from `@/lib/result` instead of exceptions. See `skills/result-type.md` for detailed usage.
 
 ### Repository Pattern
 
-Abstract data access with repositories:
-
-```typescript
-import { getRepositories } from '@/lib/repositories'
-
-const repos = getRepositories()
-const users = await repos.users.findById(id)
-```
-
-| Environment | Data Layer | Configuration |
-|-------------|------------|---------------|
-| Development | In-memory | No DB required (default) |
-| Staging | PostgreSQL | `USE_POSTGRES=true pnpm dev` |
-| Production | PostgreSQL | `pnpm build && pnpm start` |
+Abstract data access with repositories. See `skills/repository-pattern.md` for detailed usage.
 
 ### API Response Shape
 
-Return nested objects instead of IDs when frontend needs related data:
-
-```typescript
-// Good: Frontend can use department.name directly
-return NextResponse.json({
-  process: {
-    ...process,
-    department: { id: dept.id, name: dept.name },
-    organization: { id: org.id, name: org.name },
-  }
-})
-```
+Return nested objects instead of IDs when frontend needs related data. See `skills/api-response-shape.md` for examples.
 
 ### React Components
 
@@ -167,21 +128,7 @@ if (error) return <ErrorMessage error={error} />
 
 ## Git Submodule Workflow
 
-**Always commit submodules before the parent repo:**
-
-```bash
-# 1. Commit in submodule
-cd front
-git add -A
-git commit -m "feat: add new feature"
-git push origin main
-
-# 2. Commit parent repo
-cd ..
-git add front back
-git commit -m "chore: update submodule references"
-git push origin main
-```
+**Always commit submodules before the parent repo.** See `skills/submodule-workflow.md` for detailed workflow.
 
 Check submodule status:
 ```bash
