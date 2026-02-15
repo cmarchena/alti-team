@@ -161,50 +161,6 @@
           "Sidebar overlays main content (not pushing it)"
         ]
       },
-      "chat-002": {
-        "id": "chat-002",
-        "title": "Chat View Mode Toggle",
-        "priority": "high",
-        "status": "pending",
-        "implementation": "Add toggle in chat header to switch between sidebar and full-width modes using shadcn/ui: Button or Toggle, with localStorage for preference persistence",
-        "description": "Allow users to switch between compact sidebar and full-width chat view",
-        "shadcnComponents": [
-          "Button",
-          "Toggle"
-        ],
-        "viewModes": [
-          {
-            "name": "Sidebar",
-            "width": "~400px",
-            "description": "Default compact mode showing alongside main content"
-          },
-          {
-            "name": "Full-width",
-            "width": "100%",
-            "description": "Full viewport mode for focused chat experience"
-          }
-        ],
-        "features": [
-          {
-            "name": "Toggle Button",
-            "description": "Button in chat header to switch between modes"
-          },
-          {
-            "name": "Preference Storage",
-            "description": "Remember user preference in localStorage"
-          },
-          {
-            "name": "Smooth Transition",
-            "description": "Animate between view modes"
-          }
-        ],
-        "dependencies": ["chat-001"],
-        "acceptanceCriteria": [
-          "Toggle switches view modes smoothly",
-          "Preference persists across sessions",
-          "Both modes are fully functional"
-        ]
-      }
     }
   }
 }
