@@ -1,24 +1,29 @@
-Ralph Iteration - Feature: sidebar-001 (Collapsible Sidebar)
+Ralph Iteration - Feature: navbar-001 (Persistent Top Navbar) + chat-001 (Chat Sidebar)
 
 Date: 2026-02-15
 
 What was implemented:
-- Created collapsible sidebar component at front/src/components/layout/sidebar.tsx
-- Sidebar features:
-  - Collapses/expands with smooth animation
-  - Menu items organized in logical groups (Dashboard, Projects, Tasks, Teams, Departments, Processes, Resources, Settings)
-  - Submenus expand/collapse properly for Projects and Tasks
-  - State persists in localStorage (sidebar-collapsed key)
-  - Uses lucide-react icons
-  - Responsive design with title hiding when collapsed
-- Integrated sidebar into root layout.tsx with flexbox layout
+- Created persistent navbar at front/src/components/layout/navbar.tsx
+  - Page title/breadcrumb based on current route
+  - User profile dropdown with profile, settings, logout options
+  - Notification bell with unread indicator
+  - Search bar for quick navigation
+  - Alti button to open chat sidebar
+  - Responsive design with mobile menu
+- Created chat sidebar at front/src/components/chat/chat-sidebar.tsx
+  - Right-side slide-in panel using Sheet-like overlay approach
+  - Chat interface with message input
+  - Full-width toggle (bonus feature)
+  - Smooth slide animation
+  - Close on click outside or Escape key
+- Updated root layout.tsx to integrate navbar and chat sidebar
 
 Technical decisions:
-- Used React Context (SidebarContext) for managing collapsed state across components
-- Created useSidebar() hook for components to access sidebar state
-- Used Next.js Link for navigation with usePathname for active state detection
-- Created SidebarItem component for handling both simple and submenu items
+- Used direct Tailwind CSS (shadcn/ui components not installed in project)
+- Used Next.js useSession for auth state
+- Chat sidebar implemented with fixed positioning + transform for slide animation
+- Created handleKeyPress for Enter-to-send functionality
 
-Status: COMPLETED - Sidebar component created and integrated
+Status: COMPLETED - Navbar and chat sidebar created and integrated
 
-Next iteration: navbar-001 (Persistent Top Navbar) - depends on sidebar-001 which is now done
+Next iteration: chat-002 (Chat View Mode Toggle) - but chat-001 already includes full-width toggle, so this may be redundant
