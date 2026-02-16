@@ -41,7 +41,7 @@ for ((i=1; i<=MAX; i++)); do
   echo "========== Iteration $i/$MAX =========="
   echo ""
 
-  kilo run -m kilo/minimax/minimax-m2.1:free "$PROMPT" || {
+  kilo run -m kilo/minimax/minimax-m2.5:free "$PROMPT" || {
     echo "Kilo failed at iteration $i"
     exit 1
   }

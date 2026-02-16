@@ -12,7 +12,7 @@ echo ""
 # Nota: Kilo leerá el contexto del directorio actual automáticamente, 
 # pero nos aseguramos de mencionar los archivos en el prompt.
 
-kilo run -m kilo/minimax/minimax-m2.1:free "$(cat <<EOF
+kilo run -m kilo/minimax/minimax-m2.5:free "$(cat <<EOF
 You are working in a Ralph loop (https://ghuntley.com/ralph/).
 
 CONTEXT FILES:

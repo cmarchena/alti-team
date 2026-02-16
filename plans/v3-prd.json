@@ -1,0 +1,166 @@
+{
+  "projectName": "AltiTeam UI Navigation & Chat Interface",
+  "version": "2.0.0",
+  "description": "Enhanced navigation with collapsible sidebar, persistent navbar, and integrated chat panel",
+  "features": {
+    "sidebar": {
+      "sidebar-001": {
+        "id": "sidebar-001",
+        "title": "Collapsible Sidebar with Menus",
+        "priority": "critical",
+        "status": "done",
+        "implementation": "Create collapsible sidebar component at src/components/layout/sidebar.tsx using shadcn/ui: Collapsible, Tooltip, Button",
+        "description": "Create a collapsible sidebar with menu items organized in logical groups",
+        "shadcnComponents": [
+          "Collapsible",
+          "Tooltip",
+          "Button"
+        ],
+        "menuItems": [
+          {
+            "name": "Dashboard",
+            "icon": "layout-dashboard",
+            "path": "/dashboard"
+          },
+          {
+            "name": "Projects",
+            "icon": "folder-kanban",
+            "path": "/projects",
+            "subItems": [
+              { "name": "All Projects", "path": "/projects" },
+              { "name": "My Projects", "path": "/projects/my" },
+              { "name": "Archived", "path": "/projects/archived" }
+            ]
+          },
+          {
+            "name": "Tasks",
+            "icon": "check-square",
+            "path": "/tasks",
+            "subItems": [
+              { "name": "All Tasks", "path": "/tasks" },
+              { "name": "My Tasks", "path": "/tasks/my" },
+              { "name": "Overdue", "path": "/tasks/overdue" }
+            ]
+          },
+          {
+            "name": "Teams",
+            "icon": "users",
+            "path": "/teams"
+          },
+          {
+            "name": "Departments",
+            "icon": "building",
+            "path": "/departments"
+          },
+          {
+            "name": "Processes",
+            "icon": "git-branch",
+            "path": "/processes"
+          },
+          {
+            "name": "Resources",
+            "icon": "file-text",
+            "path": "/resources"
+          },
+          {
+            "name": "Settings",
+            "icon": "settings",
+            "path": "/settings"
+          }
+        ],
+        "dependencies": [],
+        "acceptanceCriteria": [
+          "Sidebar collapses and expands with animation",
+          "Menu items are organized in logical groups",
+          "Submenus expand/collapse properly",
+          "State persists in localStorage"
+        ]
+      }
+    },
+    "navbar": {
+      "navbar-001": {
+        "id": "navbar-001",
+        "title": "Persistent Top Navbar",
+        "priority": "critical",
+        "status": "done",
+        "implementation": "Create persistent navbar at src/components/layout/navbar.tsx that wraps all pages via root layout using shadcn/ui: Button, DropdownMenu, Input, Sheet, ScrollArea",
+        "description": "Create a persistent top navbar visible on all pages",
+        "shadcnComponents": [
+          "Button",
+          "DropdownMenu",
+          "Input",
+          "Sheet",
+          "ScrollArea"
+        ],
+        "components": [
+          {
+            "name": "Page Title/Breadcrumb",
+            "description": "Display current page title or breadcrumb navigation"
+          },
+          {
+            "name": "User Profile Dropdown",
+            "description": "User avatar with dropdown for profile, settings, logout"
+          },
+          {
+            "name": "Notification Bell",
+            "description": "Icon with badge showing unread notification count"
+          },
+          {
+            "name": "Search Bar",
+            "description": "Global search input for quick navigation"
+          },
+          {
+            "name": "Alti Button",
+            "description": "Button to open chat sidebar"
+          }
+        ],
+        "dependencies": ["sidebar-001"],
+        "acceptanceCriteria": [
+          "Navbar visible on all routes",
+          "Responsive design (mobile-friendly)",
+          "User can access profile and logout"
+        ]
+      }
+    },
+    "chat": {
+      "chat-001": {
+        "id": "chat-001",
+        "title": "Chat Sidebar - Alti Button",
+        "priority": "critical",
+        "status": "done",
+        "implementation": "Create chat sidebar at src/components/chat/chat-sidebar.tsx using shadcn/ui: Sheet (configured as right-side drawer), Button, Input, ScrollArea",
+        "description": "Create right-side slide-in chat panel triggered by Alti button",
+        "shadcnComponents": [
+          "Sheet",
+          "Button",
+          "Input",
+          "ScrollArea"
+        ],
+        "features": [
+          {
+            "name": "Slide-in Panel",
+            "description": "Right-side panel that slides in when Alti button is clicked"
+          },
+          {
+            "name": "Chat Interface",
+            "description": "Complete chat feature interface within the sidebar"
+          },
+          {
+            "name": "Animation",
+            "description": "Smooth slide animation from right side"
+          },
+          {
+            "name": "Close Behavior",
+            "description": "Closes when clicking outside or pressing Escape key"
+          }
+        ],
+        "dependencies": ["navbar-001"],
+        "acceptanceCriteria": [
+          "Button opens chat sidebar from right",
+          "Chat functionality works within sidebar",
+          "Sidebar overlays main content (not pushing it)"
+        ]
+      }
+    }
+  }
+}
