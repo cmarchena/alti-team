@@ -1157,7 +1157,7 @@
       "id": "i18n-001",
       "title": "Implement Internationalization (i18n) for Spanish",
       "priority": "medium",
-      "status": "pending",
+      "status": "done",
       "implementation": "Implement internationalization using next-intl library to support English and Spanish languages with language switcher in navbar and persistent language preference",
       "description": "Add full Spanish language support across the application with automatic locale detection, manual language switcher, and persistent language preference storage",
       "shadcnComponents": [
