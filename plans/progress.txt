@@ -140,3 +140,46 @@ Files changed:
 Status: COMPLETED - Sign up page fully implemented with password strength indicator, terms acceptance, and OAuth providers
 
 Next iteration: auth-003 (Authentication Context and Token Management) or navbar-002 (Merge Duplicate Navigation Bars)
+
+Ralph Iteration - Feature: auth-003 (Authentication Context and Token Management)
+
+Date: 2026-02-16
+
+What was implemented:
+- Created AuthContext at front/src/contexts/AuthContext.tsx:
+  - AuthProvider component wrapping the app
+  - useAuth hook for accessing auth state
+  - RequireAuth component for protecting routes
+  - RedirectIfAuthenticated component for auth pages
+  - Global auth state: user, isAuthenticated, isLoading
+  - Methods: login(), loginWithOAuth(), logout(), refreshUser()
+  - Automatic redirect for unauthenticated users on protected routes
+  - Session persistence via NextAuth session
+- Created /api/auth/me endpoint at front/src/app/api/auth/me/route.ts:
+  - Returns current authenticated user data
+  - Uses getServerSession for server-side auth check
+- Created /api/auth/logout endpoint at front/src/app/api/auth/logout/route.ts:
+  - Clears NextAuth session cookies
+- Updated SessionProvider.tsx to wrap AuthProvider inside NextAuthSessionProvider
+- Updated navbar.tsx to use useAuth hook instead of useSession
+- Updated middleware.ts matcher to exclude all public routes
+
+Technical decisions:
+- Used NextAuth session as the source of truth for auth state (JWT strategy)
+- AuthProvider fetches additional user data from /api/auth/me endpoint
+- Protected routes handled by middleware (server-side) + RequireAuth (client-side)
+- PUBLIC_ROUTES array defines routes accessible without authentication
+- CallbackUrl support for redirecting back after login
+- The logout endpoint clears both secure and non-secure cookie variants for cross-environment support
+
+Files changed:
+- front/src/contexts/AuthContext.tsx - New auth context and hooks
+- front/src/app/api/auth/me/route.ts - New endpoint for fetching current user
+- front/src/app/api/auth/logout/route.ts - New endpoint for logout
+- front/src/app/components/SessionProvider.tsx - Added AuthProvider wrapper
+- front/src/components/layout/navbar.tsx - Use useAuth hook
+- front/src/middleware.ts - Updated matcher for public routes
+
+Status: COMPLETED - Auth context provides global authentication state, protected routes redirect unauthenticated users
+
+Next iteration: navbar-002 (Merge Duplicate Navigation Bars) or route-001 (Departments Page Implementation)
