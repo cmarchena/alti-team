@@ -63,3 +63,40 @@ Files changed:
 Status: COMPLETED - Route groups implemented, auth pages no longer show sidebar/navbar
 
 Next iteration: navbar-002 (Merge Duplicate Navigation Bars) or auth-001 (Sign In Page Implementation)
+
+Ralph Iteration - Feature: auth-001 (Sign In Page Implementation)
+
+Date: 2026-02-16
+
+What was implemented:
+- Enhanced auth.ts with Google and Microsoft OAuth providers
+  - Added GoogleProvider and MicrosoftProvider (azure-ad) with environment variable checks
+  - Updated signIn callback to auto-create users from OAuth providers
+  - Fixed signIn path from /auth/signin to /signin for route groups
+- Completely redesigned signin page at front/src/app/(auth)/signin/page.tsx:
+  - Modern card-based UI with white card on gray background
+  - Email input with validation (regex check for valid email format)
+  - Password field with show/hide toggle
+  - Remember me checkbox (persists email to localStorage)
+  - Forgot password link (points to /forgot-password)
+  - Loading states with Loader2 spinner
+  - OAuth buttons for Google and Microsoft (with SVG icons)
+  - Error handling for OAuth errors (OAuthAccountNotLinked)
+  - Success messages for invitation acceptance flow
+  - Responsive design with proper spacing
+- Fixed signup page links to use /signin instead of /auth/signin
+
+Technical decisions:
+- OAuth providers only enabled when environment variables are set (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET)
+- OAuth auto-creates users if they don't exist (similar to passwordless signup)
+- Remember me stores email in localStorage (not password for security)
+- OAuthAccountNotLinked error handled with user-friendly message
+
+Files changed:
+- front/src/lib/auth.ts - Added OAuth providers and signIn callback
+- front/src/app/(auth)/signin/page.tsx - Complete redesign
+- front/src/app/(auth)/signup/page.tsx - Fixed route links
+
+Status: COMPLETED - Sign in page fully implemented with email/password and OAuth providers
+
+Next iteration: auth-002 (Sign Up Page Implementation) or auth-003 (Authentication Context and Token Management)
