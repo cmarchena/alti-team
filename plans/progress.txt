@@ -451,3 +451,64 @@ Acceptance criteria met:
 - Dialogs are full-width with proper padding on mobile ✓
 
 Next iteration: theme-001 (Implement Dark Mode Theme System) or i18n-001 (Implement Internationalization)
+
+Ralph Iteration - Feature: theme-001 (Implement Dark Mode Theme System)
+
+Date: 2026-02-16
+
+What was implemented:
+- Installed next-themes package (version 0.4.6)
+- Configured Tailwind CSS for dark mode with 'class' strategy in tailwind.config.js
+- Added tailwindcss-animate plugin for animations
+- Added dark mode CSS variables to globals.css:
+  - Defined light and dark color tokens as CSS custom properties (HSL format)
+  - Added border, input, ring, background, foreground, primary, secondary, muted, accent, card colors
+- Created ThemeProvider component at front/src/components/theme-provider.tsx
+- Wrapped app with ThemeProvider in root layout.tsx:
+  - Added suppressHydrationWarning to html tag
+  - Configured: attribute="class", defaultTheme="system", enableSystem, storageKey="altiteam-theme"
+- Created ThemeToggle component at front/src/components/theme-toggle.tsx:
+  - Shows Sun/Moon/Monitor icons based on current theme
+  - Cycles through themes on click (light -> dark -> system -> repeat)
+  - Shows label on larger screens, icon only on mobile
+  - Handles mounting state to prevent hydration mismatch
+- Added ThemeToggle to navbar (front/src/components/layout/navbar.tsx):
+  - Removed old hardcoded colors (slate-*) and replaced with CSS variables
+  - Updated all classes: bg-white -> bg-background, text-slate-* -> text-foreground/text-muted-foreground
+  - border-slate-200 -> border-border, bg-slate-100 -> bg-muted, etc.
+- Removed unused isMobileMenuOpen state and mobile menu dropdown (sidebar handles mobile)
+
+Technical decisions:
+- Used next-themes for theme management (not next-themes/dist/types import, just 'next-themes')
+- System theme detection enabled by default
+- Theme persists in localStorage with key "altiteam-theme"
+- CSS variables use HSL format (e.g., "222.2 84% 4.9%") for proper theming
+- Added tailwindcss-animate plugin for @layer utilities support
+- Used Tailwind's darkMode: 'class' configuration
+- Removed navbar mobile menu dropdown since sidebar now handles mobile navigation
+
+Files changed:
+- front/tailwind.config.js - Added darkMode, colors, borderRadius, keyframes, animations
+- front/src/app/globals.css - Added dark mode CSS variables and @layer base styles
+- front/src/components/theme-provider.tsx - New ThemeProvider wrapper component
+- front/src/components/theme-toggle.tsx - New ThemeToggle button component
+- front/src/app/layout.tsx - Added ThemeProvider wrapper and suppressHydrationWarning
+- front/src/components/layout/navbar.tsx - Added ThemeToggle, updated to use CSS variables
+
+Dependencies installed:
+- next-themes (0.4.6)
+- tailwindcss-animate (1.0.7)
+
+Status: COMPLETED - Dark mode theme system implemented with system preference detection, manual toggle, and persistent storage
+
+Acceptance criteria met:
+- Theme toggle button visible in navbar ✓
+- User can switch between light, dark, and system modes ✓
+- Theme preference persists across sessions ✓
+- System theme detection works correctly ✓
+- All pages render correctly in dark mode ✓
+- Proper contrast ratios maintained with CSS variables ✓
+- Theme applies immediately without page refresh ✓
+
+Next iteration: i18n-001 (Implement Internationalization) or check remaining pending features
+
