@@ -27,9 +27,18 @@
             "icon": "folder-kanban",
             "path": "/projects",
             "subItems": [
-              { "name": "All Projects", "path": "/projects" },
-              { "name": "My Projects", "path": "/projects/my" },
-              { "name": "Archived", "path": "/projects/archived" }
+              {
+                "name": "All Projects",
+                "path": "/projects"
+              },
+              {
+                "name": "My Projects",
+                "path": "/projects/my"
+              },
+              {
+                "name": "Archived",
+                "path": "/projects/archived"
+              }
             ]
           },
           {
@@ -37,9 +46,18 @@
             "icon": "check-square",
             "path": "/tasks",
             "subItems": [
-              { "name": "All Tasks", "path": "/tasks" },
-              { "name": "My Tasks", "path": "/tasks/my" },
-              { "name": "Overdue", "path": "/tasks/overdue" }
+              {
+                "name": "All Tasks",
+                "path": "/tasks"
+              },
+              {
+                "name": "My Tasks",
+                "path": "/tasks/my"
+              },
+              {
+                "name": "Overdue",
+                "path": "/tasks/overdue"
+              }
             ]
           },
           {
@@ -114,7 +132,9 @@
             "description": "Button to open chat sidebar"
           }
         ],
-        "dependencies": ["sidebar-001"],
+        "dependencies": [
+          "sidebar-001"
+        ],
         "acceptanceCriteria": [
           "Navbar visible on all routes",
           "Responsive design (mobile-friendly)",
@@ -155,7 +175,9 @@
           "Maintain all existing navbar functionality (search, notifications, profile, Alti chat)",
           "Ensure responsive behavior on mobile devices"
         ],
-        "dependencies": ["navbar-001"],
+        "dependencies": [
+          "navbar-001"
+        ],
         "acceptanceCriteria": [
           "Only one navigation bar visible across all pages",
           "Page-specific action buttons render in the navbar right section",
@@ -198,7 +220,9 @@
             "description": "Closes when clicking outside or pressing Escape key"
           }
         ],
-        "dependencies": ["navbar-001"],
+        "dependencies": [
+          "navbar-001"
+        ],
         "acceptanceCriteria": [
           "Button opens chat sidebar from right",
           "Chat functionality works within sidebar",
@@ -230,14 +254,27 @@
         "layoutStructure": {
           "authLayout": {
             "path": "src/app/(auth)/layout.tsx",
-            "includes": ["Auth pages only", "No sidebar", "No navbar", "Optional auth-specific header/footer"]
+            "includes": [
+              "Auth pages only",
+              "No sidebar",
+              "No navbar",
+              "Optional auth-specific header/footer"
+            ]
           },
           "appLayout": {
             "path": "src/app/(app)/layout.tsx",
-            "includes": ["All authenticated pages", "Sidebar", "Navbar", "Chat sidebar"]
+            "includes": [
+              "All authenticated pages",
+              "Sidebar",
+              "Navbar",
+              "Chat sidebar"
+            ]
           }
         },
-        "dependencies": ["sidebar-001", "navbar-001"],
+        "dependencies": [
+          "sidebar-001",
+          "navbar-001"
+        ],
         "acceptanceCriteria": [
           "Sidebar not visible on any auth pages",
           "Navbar not visible on any auth pages",
@@ -328,7 +365,9 @@
             "usage": "Refresh access token when expired"
           }
         },
-        "dependencies": ["layout-001"],
+        "dependencies": [
+          "layout-001"
+        ],
         "acceptanceCriteria": [
           "User can sign in with valid email/password",
           "User can sign in with Google OAuth",
@@ -417,7 +456,10 @@
             "content": "Welcome message with account verification link"
           }
         },
-        "dependencies": ["layout-001", "auth-001"],
+        "dependencies": [
+          "layout-001",
+          "auth-001"
+        ],
         "acceptanceCriteria": [
           "User can register with valid email/password",
           "User can sign up with Google OAuth",
@@ -491,7 +533,10 @@
           "Use interceptor to refresh on 401 responses",
           "Redirect to login if refresh fails"
         ],
-        "dependencies": ["auth-001", "auth-002"],
+        "dependencies": [
+          "auth-001",
+          "auth-002"
+        ],
         "acceptanceCriteria": [
           "Auth context provides authentication state globally",
           "Token automatically refreshes before expiry",
@@ -553,14 +598,29 @@
         "pageComponents": [
           {
             "name": "Department Card/Row",
-            "fields": ["Department name", "Description", "Manager", "Member count", "Project count", "Actions"]
+            "fields": [
+              "Department name",
+              "Description",
+              "Manager",
+              "Member count",
+              "Project count",
+              "Actions"
+            ]
           },
           {
             "name": "Add/Edit Dialog",
-            "fields": ["Name (required)", "Description", "Manager (select)", "Status"]
+            "fields": [
+              "Name (required)",
+              "Description",
+              "Manager (select)",
+              "Status"
+            ]
           }
         ],
-        "dependencies": ["navbar-002", "layout-001"],
+        "dependencies": [
+          "navbar-002",
+          "layout-001"
+        ],
         "acceptanceCriteria": [
           "Page renders at /departments route",
           "No 404 error when navigating to departments",
@@ -638,18 +698,43 @@
         "pageComponents": [
           {
             "name": "Resource Card/Row",
-            "fields": ["Preview/Icon", "Name", "Type", "Size", "Uploaded by", "Upload date", "Actions"]
+            "fields": [
+              "Preview/Icon",
+              "Name",
+              "Type",
+              "Size",
+              "Uploaded by",
+              "Upload date",
+              "Actions"
+            ]
           },
           {
             "name": "Upload Dialog",
-            "fields": ["File picker", "Name", "Description", "Category", "Tags", "Permissions"]
+            "fields": [
+              "File picker",
+              "Name",
+              "Description",
+              "Category",
+              "Tags",
+              "Permissions"
+            ]
           },
           {
             "name": "Category Tabs",
-            "tabs": ["All", "Documents", "Images", "Videos", "Templates", "Other"]
+            "tabs": [
+              "All",
+              "Documents",
+              "Images",
+              "Videos",
+              "Templates",
+              "Other"
+            ]
           }
         ],
-        "dependencies": ["navbar-002", "layout-001"],
+        "dependencies": [
+          "navbar-002",
+          "layout-001"
+        ],
         "acceptanceCriteria": [
           "Page renders at /resources route",
           "No 404 error when navigating to resources",
@@ -663,6 +748,80 @@
           "Categories organize resources properly",
           "Responsive design on all devices",
           "Integrates with merged navbar"
+        ]
+      }
+    },
+    "fixes": {
+      "fix-001": {
+        "id": "fix-001",
+        "title": "Fix React Infinite Loop and API Response Issues",
+        "priority": "critical",
+        "status": "done",
+        "implementation": "Fix infinite re-render loops caused by non-memoized dependencies in useSetPageHeader hook across multiple pages, and fix API response structure in /api/teams route",
+        "description": "Resolve infinite React update loops and server errors by memoizing JSX elements, arrays, and callbacks passed to useSetPageHeader hook, and ensuring API routes return consistent object structures",
+        "shadcnComponents": [],
+        "rootCause": {
+          "hookDependencies": "useSetPageHeader hook has actions and breadcrumbs as useEffect dependencies, but pages pass non-memoized JSX elements and arrays that are recreated on every render",
+          "renderLoop": "Component renders → creates new JSX/array → useEffect detects change → calls setter → context updates → triggers re-render → loop repeats",
+          "apiResponse": "/api/teams route returns user: null and organization: null when lookups fail, but frontend expects these to always be objects"
+        },
+        "affectedPages": [
+          "/projects",
+          "/teams",
+          "/departments",
+          "/processes"
+        ],
+        "errors": [
+          "Maximum update depth exceeded",
+          "TypeError: Cannot read properties of undefined (reading 'call')",
+          "404 errors for layout.css (stale Next.js cache)"
+        ],
+        "filesToModify": [
+          {
+            "file": "src/app/(app)/projects/page.tsx",
+            "changes": "Wrap actionButton in useMemo and click handler in useCallback"
+          },
+          {
+            "file": "src/app/(app)/departments/page.tsx",
+            "changes": "Wrap actionButton in useMemo, handler in useCallback, and breadcrumbs in useMemo"
+          },
+          {
+            "file": "src/app/(app)/processes/page.tsx",
+            "changes": "Wrap actionButtons in useMemo and breadcrumbs in useMemo"
+          },
+          {
+            "file": "src/app/(app)/teams/page.tsx",
+            "changes": "Wrap breadcrumbs in useMemo"
+          },
+          {
+            "file": "src/app/api/teams/route.ts",
+            "changes": "Fix response to always return valid objects with fallback values, include department field"
+          },
+          {
+            "file": ".next/",
+            "changes": "Clear stale build artifacts causing 404 errors for layout.css"
+          }
+        ],
+        "solutionPattern": {
+          "imports": "import { useState, useEffect, useMemo, useCallback } from 'react'",
+          "memoizeHandler": "const handleClick = useCallback(() => { ... }, [dependency])",
+          "memoizeJSX": "const actionButton = useMemo(() => (<button onClick={handleClick}>...</button>), [handleClick])",
+          "memoizeBreadcrumbs": "const breadcrumbs = useMemo(() => [{ label: 'PageName' }], [])",
+          "apiResponsePattern": "user: isSuccess(userResult) && userResult.data ? { id: userResult.data.id, name: userResult.data.name, email: userResult.data.email } : { id: m.userId, name: null, email: '' }"
+        },
+        "dependencies": [],
+        "acceptanceCriteria": [
+          "npx tsc --noEmit passes without errors",
+          "pnpm build succeeds without warnings",
+          "/projects page loads without infinite loop errors",
+          "/teams page loads without 'Cannot read properties of undefined' errors",
+          "/departments page loads without infinite loop errors",
+          "/processes page loads without infinite loop errors",
+          "No 'Maximum update depth exceeded' errors in console",
+          "API /teams route returns valid objects for user and organization (never null)",
+          "No 404 errors for layout.css",
+          "Page headers and action buttons render correctly",
+          "All page navigation and interactions work as expected"
         ]
       }
     }
