@@ -1,7 +1,7 @@
 {
   "projectName": "AltiTeam UI Navigation & Chat Interface",
-  "version": "2.0.0",
-  "description": "Enhanced navigation with collapsible sidebar, persistent navbar, and integrated chat panel",
+  "version": "2.1.0",
+  "description": "Enhanced navigation with collapsible sidebar, persistent navbar, integrated chat panel, and bug fixes",
   "features": {
     "sidebar": {
       "sidebar-001": {
@@ -120,6 +120,50 @@
           "Responsive design (mobile-friendly)",
           "User can access profile and logout"
         ]
+      },
+      "navbar-002": {
+        "id": "navbar-002",
+        "title": "Merge Duplicate Navigation Bars",
+        "priority": "high",
+        "status": "pending",
+        "implementation": "Refactor navbar.tsx to consolidate the global navbar and page-specific headers into a single navigation bar. Create a flexible slot/props system to accommodate page-specific action buttons (e.g., '+ New Project', 'Sign out') alongside global navigation elements",
+        "description": "Merge the two existing navigation bars (global navbar and page-specific header) into a single, unified navbar to eliminate redundancy and improve UI consistency",
+        "shadcnComponents": [
+          "Button",
+          "DropdownMenu",
+          "Input",
+          "Sheet",
+          "ScrollArea"
+        ],
+        "components": [
+          {
+            "name": "Left Section",
+            "description": "Page Title/Breadcrumb navigation"
+          },
+          {
+            "name": "Center Section (Optional)",
+            "description": "Global search bar"
+          },
+          {
+            "name": "Right Section",
+            "description": "Page-specific action buttons slot, Alti button, Notification bell, User profile dropdown"
+          }
+        ],
+        "technicalApproach": [
+          "Create a props interface that accepts pageTitle, breadcrumbs, and actionButtons",
+          "Use React children or slots pattern to allow pages to inject their specific action buttons",
+          "Maintain all existing navbar functionality (search, notifications, profile, Alti chat)",
+          "Ensure responsive behavior on mobile devices"
+        ],
+        "dependencies": ["navbar-001"],
+        "acceptanceCriteria": [
+          "Only one navigation bar visible across all pages",
+          "Page-specific action buttons render in the navbar right section",
+          "All global navigation elements remain functional",
+          "No duplicate page titles",
+          "Responsive design maintained",
+          "All existing pages (Dashboard, Projects, Tasks, Teams) work with merged navbar"
+        ]
       }
     },
     "chat": {
@@ -160,7 +204,467 @@
           "Chat functionality works within sidebar",
           "Sidebar overlays main content (not pushing it)"
         ]
+      }
+    },
+    "layout": {
+      "layout-001": {
+        "id": "layout-001",
+        "title": "Conditional Layout Rendering for Auth Pages",
+        "priority": "critical",
+        "status": "done",
+        "implementation": "Modify root layout at src/app/layout.tsx or create separate layout for auth routes at src/app/(auth)/layout.tsx to conditionally render sidebar and navbar. Use Next.js route groups to separate authenticated and public layouts",
+        "description": "Hide sidebar and navbar on authentication pages (sign in, sign up, forgot password, reset password) to provide a clean, focused authentication experience",
+        "shadcnComponents": [],
+        "technicalApproach": [
+          "Option 1: Create route group (auth) with separate layout.tsx that excludes sidebar/navbar",
+          "Option 2: Use pathname detection in root layout to conditionally render navigation components",
+          "Recommended: Use Next.js 13+ route groups for cleaner separation"
+        ],
+        "authRoutes": [
+          "/auth/signin",
+          "/auth/signup",
+          "/auth/forgot-password",
+          "/auth/reset-password",
+          "/auth/verify-email"
+        ],
+        "layoutStructure": {
+          "authLayout": {
+            "path": "src/app/(auth)/layout.tsx",
+            "includes": ["Auth pages only", "No sidebar", "No navbar", "Optional auth-specific header/footer"]
+          },
+          "appLayout": {
+            "path": "src/app/(app)/layout.tsx",
+            "includes": ["All authenticated pages", "Sidebar", "Navbar", "Chat sidebar"]
+          }
+        },
+        "dependencies": ["sidebar-001", "navbar-001"],
+        "acceptanceCriteria": [
+          "Sidebar not visible on any auth pages",
+          "Navbar not visible on any auth pages",
+          "Auth pages have clean, centered layout",
+          "Navigation components render normally on all non-auth pages",
+          "No layout shift when transitioning between auth and app pages",
+          "Responsive design maintained on auth pages"
+        ]
+      }
+    },
+    "authentication": {
+      "auth-001": {
+        "id": "auth-001",
+        "title": "Sign In Page Implementation",
+        "priority": "critical",
+        "status": "pending",
+        "implementation": "Create sign in page at src/app/(auth)/signin/page.tsx with email/password and OAuth provider authentication following backend API specifications",
+        "description": "Implement complete sign in functionality with email/password authentication and OAuth providers (Google, Microsoft) with proper JWT token handling",
+        "shadcnComponents": [
+          "Form",
+          "Input",
+          "Button",
+          "Card",
+          "Label",
+          "Separator"
+        ],
+        "features": [
+          {
+            "name": "Email/Password Authentication",
+            "description": "Traditional login with email and password validation",
+            "endpoint": "POST /api/auth/login",
+            "requestBody": {
+              "email": "string",
+              "password": "string"
+            },
+            "responseHandling": "Set httpOnly cookies for access and refresh tokens"
+          },
+          {
+            "name": "Google OAuth",
+            "description": "Sign in with Google account",
+            "endpoint": "GET /api/auth/google",
+            "redirectUri": "Configured in backend GOOGLE_REDIRECT_URI"
+          },
+          {
+            "name": "Microsoft OAuth",
+            "description": "Sign in with Microsoft account",
+            "endpoint": "GET /api/auth/microsoft",
+            "redirectUri": "Configured in backend MICROSOFT_REDIRECT_URI"
+          },
+          {
+            "name": "Remember Me",
+            "description": "Optional checkbox to extend session duration"
+          },
+          {
+            "name": "Forgot Password Link",
+            "description": "Link to password reset flow"
+          },
+          {
+            "name": "Form Validation",
+            "description": "Client-side validation for email format and required fields"
+          },
+          {
+            "name": "Error Handling",
+            "description": "Display authentication errors (invalid credentials, account locked, etc.)"
+          },
+          {
+            "name": "Loading States",
+            "description": "Show loading indicators during authentication"
+          }
+        ],
+        "securityRequirements": [
+          "Use HTTPS in production",
+          "Implement CSRF protection",
+          "HttpOnly cookies for tokens",
+          "Secure cookie flag in production",
+          "SameSite strict cookie policy",
+          "Rate limiting on login attempts"
+        ],
+        "tokenHandling": {
+          "accessToken": {
+            "storage": "httpOnly cookie",
+            "expiry": "15 minutes (ACCESS_TOKEN_EXPIRY)",
+            "usage": "Authorization header for API requests"
+          },
+          "refreshToken": {
+            "storage": "httpOnly cookie",
+            "expiry": "7 days (REFRESH_TOKEN_EXPIRY)",
+            "usage": "Refresh access token when expired"
+          }
+        },
+        "dependencies": ["layout-001"],
+        "acceptanceCriteria": [
+          "User can sign in with valid email/password",
+          "User can sign in with Google OAuth",
+          "User can sign in with Microsoft OAuth",
+          "Invalid credentials show appropriate error message",
+          "Successful login redirects to dashboard",
+          "Tokens stored securely in httpOnly cookies",
+          "Form validation prevents submission of invalid data",
+          "Loading states displayed during authentication",
+          "Error messages are user-friendly and helpful",
+          "Responsive design works on all screen sizes"
+        ]
       },
+      "auth-002": {
+        "id": "auth-002",
+        "title": "Sign Up Page Implementation",
+        "priority": "critical",
+        "status": "pending",
+        "implementation": "Create sign up page at src/app/(auth)/signup/page.tsx with email/password registration and OAuth provider signup following backend API specifications",
+        "description": "Implement complete sign up functionality with email/password registration, OAuth providers, and email verification",
+        "shadcnComponents": [
+          "Form",
+          "Input",
+          "Button",
+          "Card",
+          "Label",
+          "Separator",
+          "Checkbox"
+        ],
+        "features": [
+          {
+            "name": "Email/Password Registration",
+            "description": "New user registration with email and password",
+            "endpoint": "POST /api/auth/register",
+            "requestBody": {
+              "email": "string",
+              "password": "string",
+              "firstName": "string",
+              "lastName": "string",
+              "acceptTerms": "boolean"
+            }
+          },
+          {
+            "name": "Google OAuth Signup",
+            "description": "Sign up with Google account",
+            "endpoint": "GET /api/auth/google"
+          },
+          {
+            "name": "Microsoft OAuth Signup",
+            "description": "Sign up with Microsoft account",
+            "endpoint": "GET /api/auth/microsoft"
+          },
+          {
+            "name": "Password Strength Indicator",
+            "description": "Visual indicator of password strength with requirements"
+          },
+          {
+            "name": "Email Verification",
+            "description": "Send welcome email with verification link (SEND_WELCOME_EMAIL=true)"
+          },
+          {
+            "name": "Terms and Conditions",
+            "description": "Checkbox to accept terms and privacy policy"
+          },
+          {
+            "name": "Form Validation",
+            "description": "Validate email format, password requirements, required fields"
+          },
+          {
+            "name": "Error Handling",
+            "description": "Display registration errors (email already exists, weak password, etc.)"
+          }
+        ],
+        "passwordRequirements": [
+          "Minimum 8 characters",
+          "At least one uppercase letter",
+          "At least one lowercase letter",
+          "At least one number",
+          "At least one special character"
+        ],
+        "emailConfiguration": {
+          "welcomeEmail": {
+            "enabled": "SEND_WELCOME_EMAIL environment variable",
+            "type": "welcome_email",
+            "delay": "Immediate in development, 1 min in staging, 5 min in production",
+            "content": "Welcome message with account verification link"
+          }
+        },
+        "dependencies": ["layout-001", "auth-001"],
+        "acceptanceCriteria": [
+          "User can register with valid email/password",
+          "User can sign up with Google OAuth",
+          "User can sign up with Microsoft OAuth",
+          "Password meets strength requirements",
+          "Email already registered shows error",
+          "Welcome email sent after successful registration",
+          "User redirected to email verification page or dashboard",
+          "Terms and conditions must be accepted",
+          "Form validation prevents invalid submissions",
+          "Loading states displayed during registration",
+          "Responsive design works on all screen sizes"
+        ]
+      },
+      "auth-003": {
+        "id": "auth-003",
+        "title": "Authentication Context and Token Management",
+        "priority": "critical",
+        "status": "pending",
+        "implementation": "Create authentication context at src/contexts/AuthContext.tsx to manage user authentication state, token refresh, and protected routes",
+        "description": "Implement React context for global authentication state management with automatic token refresh and protected route handling",
+        "shadcnComponents": [],
+        "features": [
+          {
+            "name": "Auth Context Provider",
+            "description": "Global state for user authentication status and user data"
+          },
+          {
+            "name": "Token Refresh Logic",
+            "description": "Automatically refresh access token using refresh token before expiry"
+          },
+          {
+            "name": "Protected Route Wrapper",
+            "description": "HOC or component to protect authenticated routes"
+          },
+          {
+            "name": "Logout Functionality",
+            "description": "Clear tokens and redirect to login"
+          },
+          {
+            "name": "Session Persistence",
+            "description": "Check authentication status on app load"
+          }
+        ],
+        "apiEndpoints": [
+          {
+            "endpoint": "POST /api/auth/refresh",
+            "description": "Refresh access token using refresh token cookie"
+          },
+          {
+            "endpoint": "POST /api/auth/logout",
+            "description": "Invalidate tokens and clear cookies"
+          },
+          {
+            "endpoint": "GET /api/auth/me",
+            "description": "Get current authenticated user data"
+          }
+        ],
+        "contextInterface": {
+          "user": "User object or null",
+          "isAuthenticated": "boolean",
+          "isLoading": "boolean",
+          "login": "function(email, password)",
+          "logout": "function()",
+          "refreshToken": "function()",
+          "checkAuth": "function()"
+        },
+        "tokenRefreshStrategy": [
+          "Monitor access token expiry (15 minutes)",
+          "Automatically refresh 2 minutes before expiry",
+          "Use interceptor to refresh on 401 responses",
+          "Redirect to login if refresh fails"
+        ],
+        "dependencies": ["auth-001", "auth-002"],
+        "acceptanceCriteria": [
+          "Auth context provides authentication state globally",
+          "Token automatically refreshes before expiry",
+          "Protected routes redirect unauthenticated users to login",
+          "User data persists across page refreshes",
+          "Logout clears all authentication state",
+          "Failed refresh redirects to login",
+          "401 responses trigger token refresh attempt"
+        ]
+      }
+    },
+    "routes": {
+      "route-001": {
+        "id": "route-001",
+        "title": "Departments Page Implementation",
+        "priority": "high",
+        "status": "pending",
+        "implementation": "Create departments page at src/app/(app)/departments/page.tsx with department listing, filtering, and management features",
+        "description": "Implement departments page to display and manage organizational departments",
+        "shadcnComponents": [
+          "Table",
+          "Button",
+          "Input",
+          "Card",
+          "DropdownMenu",
+          "Dialog",
+          "Badge"
+        ],
+        "features": [
+          {
+            "name": "Departments List",
+            "description": "Display all departments in a table/grid view"
+          },
+          {
+            "name": "Search and Filter",
+            "description": "Search departments by name, filter by status"
+          },
+          {
+            "name": "Department Details",
+            "description": "View department information including members and projects"
+          },
+          {
+            "name": "Add Department",
+            "description": "Create new department with name, description, manager"
+          },
+          {
+            "name": "Edit Department",
+            "description": "Update department information"
+          },
+          {
+            "name": "Delete Department",
+            "description": "Remove department (with confirmation)"
+          },
+          {
+            "name": "Department Members",
+            "description": "View and manage team members assigned to department"
+          }
+        ],
+        "pageComponents": [
+          {
+            "name": "Department Card/Row",
+            "fields": ["Department name", "Description", "Manager", "Member count", "Project count", "Actions"]
+          },
+          {
+            "name": "Add/Edit Dialog",
+            "fields": ["Name (required)", "Description", "Manager (select)", "Status"]
+          }
+        ],
+        "dependencies": ["navbar-002", "layout-001"],
+        "acceptanceCriteria": [
+          "Page renders at /departments route",
+          "No 404 error when navigating to departments",
+          "Departments list displays correctly",
+          "Search and filter functionality works",
+          "Can create new department",
+          "Can edit existing department",
+          "Can delete department with confirmation",
+          "Responsive design on all devices",
+          "Integrates with merged navbar"
+        ]
+      },
+      "route-002": {
+        "id": "route-002",
+        "title": "Resources Page Implementation",
+        "priority": "high",
+        "status": "pending",
+        "implementation": "Create resources page at src/app/(app)/resources/page.tsx with resource library, file management, and categorization features",
+        "description": "Implement resources page to manage and access organizational resources, documents, and files",
+        "shadcnComponents": [
+          "Table",
+          "Button",
+          "Input",
+          "Card",
+          "DropdownMenu",
+          "Dialog",
+          "Badge",
+          "Tabs"
+        ],
+        "features": [
+          {
+            "name": "Resources List",
+            "description": "Display all resources with preview, name, type, size, upload date"
+          },
+          {
+            "name": "Search and Filter",
+            "description": "Search resources by name, filter by type, category, tags"
+          },
+          {
+            "name": "Upload Resource",
+            "description": "Upload new files/documents with metadata"
+          },
+          {
+            "name": "Resource Categories",
+            "description": "Organize resources into categories (Documents, Images, Videos, Templates, etc.)"
+          },
+          {
+            "name": "Download Resource",
+            "description": "Download individual resources"
+          },
+          {
+            "name": "Edit Metadata",
+            "description": "Update resource name, description, tags, category"
+          },
+          {
+            "name": "Delete Resource",
+            "description": "Remove resource (with confirmation)"
+          },
+          {
+            "name": "Resource Preview",
+            "description": "Preview supported file types (images, PDFs)"
+          },
+          {
+            "name": "Sharing Permissions",
+            "description": "Manage who can access each resource"
+          }
+        ],
+        "resourceTypes": [
+          "Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx)",
+          "Images (.jpg, .png, .gif, .svg)",
+          "Videos (.mp4, .mov, .avi)",
+          "Archives (.zip, .rar)",
+          "Other files"
+        ],
+        "pageComponents": [
+          {
+            "name": "Resource Card/Row",
+            "fields": ["Preview/Icon", "Name", "Type", "Size", "Uploaded by", "Upload date", "Actions"]
+          },
+          {
+            "name": "Upload Dialog",
+            "fields": ["File picker", "Name", "Description", "Category", "Tags", "Permissions"]
+          },
+          {
+            "name": "Category Tabs",
+            "tabs": ["All", "Documents", "Images", "Videos", "Templates", "Other"]
+          }
+        ],
+        "dependencies": ["navbar-002", "layout-001"],
+        "acceptanceCriteria": [
+          "Page renders at /resources route",
+          "No 404 error when navigating to resources",
+          "Resources list displays correctly",
+          "Search and filter functionality works",
+          "Can upload new resources",
+          "Can download resources",
+          "Can edit resource metadata",
+          "Can delete resources with confirmation",
+          "File preview works for supported types",
+          "Categories organize resources properly",
+          "Responsive design on all devices",
+          "Integrates with merged navbar"
+        ]
+      }
     }
   }
 }

@@ -27,3 +27,39 @@ Technical decisions:
 Status: COMPLETED - Navbar and chat sidebar created and integrated
 
 Next iteration: chat-002 (Chat View Mode Toggle) - but chat-001 already includes full-width toggle, so this may be redundant
+
+Ralph Iteration - Feature: layout-001 (Conditional Layout Rendering for Auth Pages)
+
+Date: 2026-02-16
+
+What was implemented:
+- Created Next.js route groups for clean separation of auth and app layouts
+- Created src/app/(auth)/layout.tsx - minimal layout without sidebar/navbar
+- Created src/app/(app)/layout.tsx - full app layout with sidebar, navbar, chat sidebar
+- Updated root layout.tsx to be minimal (just html/body wrapper)
+- Moved auth pages from /auth/* to (auth) route group:
+  - /auth/signin -> /signin
+  - /auth/signup -> /signup
+  - /auth/accept-invitation -> /accept-invitation
+- Moved all app pages to (app) route group:
+  - /dashboard, /projects, /tasks, /teams, /organizations, /processes, etc.
+- Removed obsolete app-shell.tsx component (functionality moved to (app)/layout.tsx)
+
+Technical decisions:
+- Used Next.js route groups (parentheses syntax) as recommended in PRD
+- Route groups don't affect URL structure - auth pages are now at /signin, /signup (no /auth prefix)
+- App layout contains SessionProvider, Sidebar, Navbar, and ChatSidebar
+- Auth layout is minimal - just gray background with centered content
+- This approach avoids conditional rendering based on pathname and provides cleaner separation
+
+Files changed:
+- front/src/app/layout.tsx - simplified to minimal root layout
+- front/src/app/(auth)/layout.tsx - new auth layout
+- front/src/app/(app)/layout.tsx - new app layout (migrated from app-shell.tsx)
+- Removed: front/src/components/layout/app-shell.tsx
+- Moved all auth pages from front/src/app/auth/* to front/src/app/(auth)/*
+- Moved all app pages to front/src/app/(app)/*
+
+Status: COMPLETED - Route groups implemented, auth pages no longer show sidebar/navbar
+
+Next iteration: navbar-002 (Merge Duplicate Navigation Bars) or auth-001 (Sign In Page Implementation)
