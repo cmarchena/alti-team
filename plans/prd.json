@@ -125,7 +125,7 @@
         "id": "navbar-002",
         "title": "Merge Duplicate Navigation Bars",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "implementation": "Refactor navbar.tsx to consolidate the global navbar and page-specific headers into a single navigation bar. Create a flexible slot/props system to accommodate page-specific action buttons (e.g., '+ New Project', 'Sign out') alongside global navigation elements",
         "description": "Merge the two existing navigation bars (global navbar and page-specific header) into a single, unified navbar to eliminate redundancy and improve UI consistency",
         "shadcnComponents": [

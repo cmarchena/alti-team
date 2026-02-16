@@ -183,3 +183,59 @@ Files changed:
 Status: COMPLETED - Auth context provides global authentication state, protected routes redirect unauthenticated users
 
 Next iteration: navbar-002 (Merge Duplicate Navigation Bars) or route-001 (Departments Page Implementation)
+
+Ralph Iteration - Feature: navbar-002 (Merge Duplicate Navigation Bars)
+
+Date: 2026-02-16
+
+What was implemented:
+- Created PageHeaderContext at front/src/contexts/PageHeaderContext.tsx:
+  - PageHeaderProvider component for managing page header state
+  - usePageHeader hook for accessing header state
+  - useSetPageHeader hook for pages to set their header content declaratively
+  - Supports: title, breadcrumbs, and action buttons (ReactNode)
+- Updated (app)/layout.tsx to wrap children with PageHeaderProvider
+- Refactored navbar.tsx to:
+  - Read title, breadcrumbs, actions from PageHeaderContext
+  - Display breadcrumbs when provided (with ChevronRight separators)
+  - Fall back to title-based display when no breadcrumbs
+  - Render page-specific action buttons in the right section
+  - Action buttons visible in both desktop and mobile views
+- Removed duplicate headers from all main pages:
+  - projects/page.tsx - Removed separate <header>, added "New Project" button to navbar
+  - tasks/page.tsx - Removed separate header, added conditional "New Task" button to navbar
+  - teams/page.tsx - Removed separate <header>, integrated with navbar
+  - dashboard/page.tsx - Removed separate header, added "Sign out" button to navbar
+  - organizations/page.tsx - Removed separate <header>, added "New Organization" button to navbar
+  - processes/page.tsx - Removed separate <header>, added "Create Ad-hoc" and "Use Template" buttons to navbar
+
+Technical decisions:
+- Used React Context pattern for page header state management
+- Actions are ReactNode type allowing flexible button compositions
+- Each page uses useSetPageHeader hook to set its header content on mount
+- Cleanup effect in useSetPageHeader clears header state on unmount
+- Page titles now show only once (in navbar) - no duplication
+- Action buttons render conditionally (e.g., Tasks page only shows "New Task" when a project is selected)
+
+Files changed:
+- front/src/contexts/PageHeaderContext.tsx - New context for page header management
+- front/src/app/(app)/layout.tsx - Added PageHeaderProvider wrapper
+- front/src/components/layout/navbar.tsx - Refactored to use PageHeaderContext
+- front/src/app/(app)/projects/page.tsx - Removed duplicate header, use page header context
+- front/src/app/(app)/tasks/page.tsx - Removed duplicate header, use page header context
+- front/src/app/(app)/teams/page.tsx - Removed duplicate header, use page header context
+- front/src/app/(app)/dashboard/page.tsx - Removed duplicate header, use page header context
+- front/src/app/(app)/organizations/page.tsx - Removed duplicate header, use page header context
+- front/src/app/(app)/processes/page.tsx - Removed duplicate header, use page header context
+
+Status: COMPLETED - Single unified navbar across all pages with page-specific action buttons integrated
+
+Acceptance criteria met:
+- Only one navigation bar visible across all pages ✓
+- Page-specific action buttons render in the navbar right section ✓
+- All global navigation elements remain functional ✓
+- No duplicate page titles ✓
+- Responsive design maintained ✓
+- All existing pages work with merged navbar ✓
+
+Next iteration: route-001 (Departments Page Implementation) or route-002 (Resources Page Implementation)
