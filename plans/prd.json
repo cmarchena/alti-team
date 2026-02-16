@@ -637,7 +637,7 @@
         "id": "route-002",
         "title": "Resources Page Implementation",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "implementation": "Create resources page at src/app/(app)/resources/page.tsx with resource library, file management, and categorization features",
         "description": "Implement resources page to manage and access organizational resources, documents, and files",
         "shadcnComponents": [
@@ -824,6 +824,706 @@
           "All page navigation and interactions work as expected"
         ]
       }
+    },
+    "responsive": {
+      "responsive-001": {
+        "id": "responsive-001",
+        "title": "Implement Responsive Design System",
+        "priority": "high",
+        "status": "pending",
+        "implementation": "Implement responsive design across all pages and components using Tailwind CSS breakpoints and mobile-first approach to ensure optimal viewing experience on all devices (mobile, tablet, desktop)",
+        "description": "Make the entire AltiTeam application responsive with adaptive layouts for mobile (320px-768px), tablet (768px-1024px), and desktop (1024px+) screen sizes",
+        "shadcnComponents": [
+          "Sheet",
+          "Drawer",
+          "Accordion",
+          "DropdownMenu"
+        ],
+        "breakpoints": {
+          "mobile": "320px - 767px",
+          "tablet": "768px - 1023px",
+          "desktop": "1024px+"
+        },
+        "componentsToModify": [
+          {
+            "component": "Sidebar",
+            "file": "src/components/layout/sidebar.tsx",
+            "changes": [
+              "Convert to drawer/sheet on mobile devices",
+              "Add hamburger menu toggle button",
+              "Implement swipe gestures for opening/closing",
+              "Auto-collapse on mobile by default",
+              "Full-width overlay on mobile"
+            ]
+          },
+          {
+            "component": "Navbar",
+            "file": "src/components/layout/navbar.tsx",
+            "changes": [
+              "Stack navigation items vertically on mobile",
+              "Convert search bar to expandable icon on mobile",
+              "Move action buttons to dropdown menu on mobile",
+              "Reduce padding and font sizes on smaller screens",
+              "Implement sticky header behavior"
+            ]
+          },
+          {
+            "component": "Dashboard",
+            "file": "src/app/(app)/dashboard/page.tsx",
+            "changes": [
+              "Stack stat cards vertically on mobile (1 column)",
+              "2 columns on tablet, 4 columns on desktop",
+              "Make charts scrollable horizontally on mobile",
+              "Adjust card padding and spacing for mobile"
+            ]
+          },
+          {
+            "component": "Projects List",
+            "file": "src/app/(app)/projects/page.tsx",
+            "changes": [
+              "Convert table to card layout on mobile",
+              "Stack project cards vertically",
+              "Hide less important columns on tablet",
+              "Make filters collapsible on mobile"
+            ]
+          },
+          {
+            "component": "Tasks List",
+            "file": "src/app/(app)/tasks/page.tsx",
+            "changes": [
+              "Convert table to card layout on mobile",
+              "Stack task cards vertically",
+              "Priority badges and status visible on all sizes",
+              "Swipe actions for quick task management on mobile"
+            ]
+          },
+          {
+            "component": "Teams List",
+            "file": "src/app/(app)/teams/page.tsx",
+            "changes": [
+              "Convert table to card layout on mobile",
+              "Show avatar, name, role on mobile cards",
+              "Hide department column on mobile",
+              "Stack member details vertically"
+            ]
+          },
+          {
+            "component": "Chat Sidebar",
+            "file": "src/components/chat/chat-sidebar.tsx",
+            "changes": [
+              "Full-screen on mobile devices",
+              "Slide up from bottom on mobile (Sheet)",
+              "Reduce width to 90% on tablet",
+              "Maintain side panel on desktop"
+            ]
+          },
+          {
+            "component": "Dialogs/Modals",
+            "files": "All dialog components",
+            "changes": [
+              "Full-screen modals on mobile",
+              "Centered modals with max-width on desktop",
+              "Adjust padding and font sizes",
+              "Stack form fields vertically on mobile"
+            ]
+          }
+        ],
+        "tailwindBreakpoints": {
+          "sm": "640px",
+          "md": "768px",
+          "lg": "1024px",
+          "xl": "1280px",
+          "2xl": "1536px"
+        },
+        "implementationPattern": {
+          "mobileFirst": "Start with mobile styles, add larger breakpoints with md:, lg:, xl: prefixes",
+          "example": "<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>",
+          "hideOnMobile": "className='hidden md:block'",
+          "showOnMobile": "className='block md:hidden'",
+          "responsiveText": "className='text-sm md:text-base lg:text-lg'",
+          "responsivePadding": "className='p-4 md:p-6 lg:p-8'"
+        },
+        "testingDevices": [
+          "iPhone SE (375px)",
+          "iPhone 12/13/14 (390px)",
+          "Samsung Galaxy S20 (360px)",
+          "iPad (768px)",
+          "iPad Pro (1024px)",
+          "Desktop (1920px)"
+        ],
+        "dependencies": [
+          "navbar-002",
+          "layout-001"
+        ],
+        "acceptanceCriteria": [
+          "All pages render correctly on mobile devices (320px-767px)",
+          "Sidebar converts to mobile drawer with hamburger menu",
+          "Navbar is responsive with stacked/collapsed elements on mobile",
+          "Tables convert to card layouts on mobile",
+          "All forms are usable on mobile devices",
+          "Touch targets are minimum 44x44px on mobile",
+          "No horizontal scrolling on any device size",
+          "Images and charts scale appropriately",
+          "Text remains readable on all screen sizes",
+          "Action buttons remain accessible on mobile",
+          "Chat sidebar is full-screen on mobile",
+          "Dialogs are full-screen or properly sized on mobile",
+          "Navigation works smoothly on touch devices",
+          "All interactive elements are touch-friendly",
+          "Tested on real devices or browser dev tools"
+        ]
+      }
+    },
+    "dark mode": {
+      "id": "theme-001",
+      "title": "Implement Dark Mode Theme System",
+      "priority": "medium",
+      "status": "pending",
+      "implementation": "Implement dark mode theme system using next-themes library and Tailwind CSS dark mode with theme toggle in navbar and persistent theme preference",
+      "description": "Add dark mode support across the entire application with system preference detection, manual toggle, and persistent theme storage",
+      "shadcnComponents": [
+        "DropdownMenu",
+        "Button",
+        "Switch"
+      ],
+      "packages": [
+        {
+          "name": "next-themes",
+          "version": "^0.2.1",
+          "install": "pnpm add next-themes"
+        }
+      ],
+      "filesToCreate": [
+        {
+          "file": "src/components/theme-provider.tsx",
+          "description": "ThemeProvider wrapper component using next-themes"
+        },
+        {
+          "file": "src/components/theme-toggle.tsx",
+          "description": "Theme toggle button component with sun/moon icons"
+        }
+      ],
+      "filesToModify": [
+        {
+          "file": "src/app/layout.tsx",
+          "changes": "Wrap app with ThemeProvider, add suppressHydrationWarning to html tag"
+        },
+        {
+          "file": "src/components/layout/navbar.tsx",
+          "changes": "Add theme toggle button to navbar right section"
+        },
+        {
+          "file": "tailwind.config.ts",
+          "changes": "Configure dark mode with 'class' strategy, define dark mode color variables"
+        },
+        {
+          "file": "src/app/globals.css",
+          "changes": "Add dark mode CSS variables for all color tokens"
+        }
+      ],
+      "themeConfiguration": {
+        "modes": [
+          "light",
+          "dark",
+          "system"
+        ],
+        "defaultMode": "system",
+        "storage": "localStorage",
+        "storageKey": "altiteam-theme",
+        "attribute": "class"
+      },
+      "colorTokens": {
+        "light": {
+          "background": "0 0% 100%",
+          "foreground": "222.2 84% 4.9%",
+          "card": "0 0% 100%",
+          "card-foreground": "222.2 84% 4.9%",
+          "primary": "222.2 47.4% 11.2%",
+          "primary-foreground": "210 40% 98%",
+          "secondary": "210 40% 96.1%",
+          "secondary-foreground": "222.2 47.4% 11.2%",
+          "muted": "210 40% 96.1%",
+          "muted-foreground": "215.4 16.3% 46.9%",
+          "accent": "210 40% 96.1%",
+          "accent-foreground": "222.2 47.4% 11.2%",
+          "border": "214.3 31.8% 91.4%",
+          "input": "214.3 31.8% 91.4%",
+          "ring": "222.2 84% 4.9%"
+        },
+        "dark": {
+          "background": "222.2 84% 4.9%",
+          "foreground": "210 40% 98%",
+          "card": "222.2 84% 4.9%",
+          "card-foreground": "210 40% 98%",
+          "primary": "210 40% 98%",
+          "primary-foreground": "222.2 47.4% 11.2%",
+          "secondary": "217.2 32.6% 17.5%",
+          "secondary-foreground": "210 40% 98%",
+          "muted": "217.2 32.6% 17.5%",
+          "muted-foreground": "215 20.2% 65.1%",
+          "accent": "217.2 32.6% 17.5%",
+          "accent-foreground": "210 40% 98%",
+          "border": "217.2 32.6% 17.5%",
+          "input": "217.2 32.6% 17.5%",
+          "ring": "212.7 26.8% 83.9%"
+        }
+      },
+      "implementationSteps": [
+        {
+          "step": 1,
+          "action": "Install next-themes package"
+        },
+        {
+          "step": 2,
+          "action": "Configure Tailwind CSS for dark mode in tailwind.config.ts"
+        },
+        {
+          "step": 3,
+          "action": "Add dark mode CSS variables to globals.css"
+        },
+        {
+          "step": 4,
+          "action": "Create ThemeProvider component"
+        },
+        {
+          "step": 5,
+          "action": "Wrap application with ThemeProvider in layout.tsx"
+        },
+        {
+          "step": 6,
+          "action": "Create ThemeToggle component with dropdown menu"
+        },
+        {
+          "step": 7,
+          "action": "Add ThemeToggle to navbar"
+        },
+        {
+          "step": 8,
+          "action": "Update all components to use CSS variables instead of hardcoded colors"
+        },
+        {
+          "step": 9,
+          "action": "Test all pages in light, dark, and system modes"
+        }
+      ],
+      "themeToggleComponent": {
+        "location": "Navbar right section, before user profile dropdown",
+        "options": [
+          "Light",
+          "Dark",
+          "System"
+        ],
+        "icons": {
+          "light": "Sun icon from lucide-react",
+          "dark": "Moon icon from lucide-react",
+          "system": "Monitor icon from lucide-react"
+        }
+      },
+      "componentsToUpdate": [
+        "All pages in src/app/(app)/",
+        "All components in src/components/",
+        "Sidebar, Navbar, Chat sidebar",
+        "Cards, Tables, Forms, Dialogs",
+        "Dashboard charts and stats",
+        "Authentication pages"
+      ],
+      "cssVariablePattern": {
+        "usage": "Use bg-background, text-foreground, border-border instead of hardcoded colors",
+        "example": "className='bg-background text-foreground border-border'",
+        "custom": "Define custom color variables in :root and .dark selectors"
+      },
+      "dependencies": [
+        "responsive-001"
+      ],
+      "acceptanceCriteria": [
+        "Theme toggle button visible in navbar",
+        "User can switch between light, dark, and system modes",
+        "Theme preference persists across sessions",
+        "System theme detection works correctly",
+        "All pages render correctly in dark mode",
+        "All text is readable in both themes",
+        "Proper contrast ratios maintained (WCAG AA)",
+        "Images and icons adapt to theme where appropriate",
+        "Charts and graphs are visible in both themes",
+        "No flash of wrong theme on page load",
+        "Smooth transition between themes",
+        "All shadcn/ui components support dark mode",
+        "Form inputs clearly visible in both themes",
+        "Hover and focus states work in both themes",
+        "Theme applies immediately without page refresh"
+      ]
+    },
+    "i18n": {
+      "id": "i18n-001",
+      "title": "Implement Internationalization (i18n) for Spanish",
+      "priority": "medium",
+      "status": "pending",
+      "implementation": "Implement internationalization using next-intl library to support English and Spanish languages with language switcher in navbar and persistent language preference",
+      "description": "Add full Spanish language support across the application with automatic locale detection, manual language switcher, and persistent language preference storage",
+      "shadcnComponents": [
+        "DropdownMenu",
+        "Button"
+      ],
+      "packages": [
+        {
+          "name": "next-intl",
+          "version": "^3.0.0",
+          "install": "pnpm add next-intl"
+        }
+      ],
+      "supportedLanguages": [
+        {
+          "code": "en",
+          "name": "English",
+          "nativeName": "English",
+          "flag": "🇬🇧"
+        },
+        {
+          "code": "es",
+          "name": "Spanish",
+          "nativeName": "Español",
+          "flag": "🇪🇸"
+        }
+      ],
+      "filesToCreate": [
+        {
+          "file": "src/i18n/request.ts",
+          "description": "Server-side i18n configuration"
+        },
+        {
+          "file": "src/i18n/routing.ts",
+          "description": "Routing configuration for locales"
+        },
+        {
+          "file": "src/middleware.ts",
+          "description": "Next.js middleware for locale detection and routing"
+        },
+        {
+          "file": "messages/en.json",
+          "description": "English translation strings"
+        },
+        {
+          "file": "messages/es.json",
+          "description": "Spanish translation strings"
+        },
+        {
+          "file": "src/components/language-switcher.tsx",
+          "description": "Language switcher dropdown component"
+        }
+      ],
+      "filesToModify": [
+        {
+          "file": "src/app/layout.tsx",
+          "changes": "Move to [locale] folder structure, wrap with NextIntlClientProvider"
+        },
+        {
+          "file": "src/components/layout/navbar.tsx",
+          "changes": "Add language switcher dropdown to navbar"
+        },
+        {
+          "file": "next.config.js",
+          "changes": "Configure i18n settings and locale routing"
+        },
+        {
+          "file": "All page components",
+          "changes": "Replace hardcoded strings with useTranslations hook"
+        }
+      ],
+      "folderStructure": {
+        "before": "src/app/(app)/dashboard/page.tsx",
+        "after": "src/app/[locale]/(app)/dashboard/page.tsx",
+        "messages": "messages/{locale}.json at project root"
+      },
+      "translationNamespaces": [
+        {
+          "namespace": "common",
+          "keys": [
+            "appName",
+            "welcome",
+            "loading",
+            "error",
+            "success",
+            "cancel",
+            "save",
+            "delete",
+            "edit",
+            "create",
+            "search",
+            "filter"
+          ]
+        },
+        {
+          "namespace": "navigation",
+          "keys": [
+            "dashboard",
+            "projects",
+            "tasks",
+            "teams",
+            "departments",
+            "processes",
+            "resources",
+            "settings"
+          ]
+        },
+        {
+          "namespace": "auth",
+          "keys": [
+            "signIn",
+            "signUp",
+            "signOut",
+            "email",
+            "password",
+            "forgotPassword",
+            "resetPassword",
+            "rememberMe",
+            "createAccount",
+            "alreadyHaveAccount"
+          ]
+        },
+        {
+          "namespace": "dashboard",
+          "keys": [
+            "totalProjects",
+            "totalTasks",
+            "teamMembers",
+            "pendingInvitations",
+            "projectsByStatus",
+            "tasksByStatus",
+            "recentProjects",
+            "recentTasks"
+          ]
+        },
+        {
+          "namespace": "projects",
+          "keys": [
+            "newProject",
+            "allProjects",
+            "myProjects",
+            "archived",
+            "projectName",
+            "description",
+            "status",
+            "members",
+            "tasks",
+            "resources",
+            "planning",
+            "inProgress",
+            "completed"
+          ]
+        },
+        {
+          "namespace": "tasks",
+          "keys": [
+            "newTask",
+            "allTasks",
+            "myTasks",
+            "overdue",
+            "taskName",
+            "priority",
+            "dueDate",
+            "assignedTo",
+            "low",
+            "medium",
+            "high",
+            "urgent",
+            "todo",
+            "done"
+          ]
+        },
+        {
+          "namespace": "teams",
+          "keys": [
+            "member",
+            "organization",
+            "department",
+            "role",
+            "position",
+            "admin",
+            "viewer",
+            "actions",
+            "editMember",
+            "removeMember"
+          ]
+        },
+        {
+          "namespace": "departments",
+          "keys": [
+            "newDepartment",
+            "departmentName",
+            "manager",
+            "memberCount",
+            "projectCount"
+          ]
+        },
+        {
+          "namespace": "resources",
+          "keys": [
+            "uploadResource",
+            "fileName",
+            "fileType",
+            "fileSize",
+            "uploadedBy",
+            "uploadDate",
+            "download",
+            "preview",
+            "documents",
+            "images",
+            "videos",
+            "templates"
+          ]
+        }
+      ],
+      "translationExample": {
+        "en": {
+          "common": {
+            "appName": "AltiTeam",
+            "welcome": "Welcome",
+            "loading": "Loading...",
+            "save": "Save",
+            "cancel": "Cancel"
+          },
+          "navigation": {
+            "dashboard": "Dashboard",
+            "projects": "Projects",
+            "tasks": "Tasks"
+          }
+        },
+        "es": {
+          "common": {
+            "appName": "AltiTeam",
+            "welcome": "Bienvenido",
+            "loading": "Cargando...",
+            "save": "Guardar",
+            "cancel": "Cancelar"
+          },
+          "navigation": {
+            "dashboard": "Panel de Control",
+            "projects": "Proyectos",
+            "tasks": "Tareas"
+          }
+        }
+      },
+      "usagePattern": {
+        "import": "import { useTranslations } from 'next-intl'",
+        "hook": "const t = useTranslations('namespace')",
+        "usage": "t('key')",
+        "example": "const t = useTranslations('common'); <h1>{t('welcome')}</h1>"
+      },
+      "languageSwitcher": {
+        "location": "Navbar right section, between theme toggle and notification bell",
+        "displayFormat": "Flag icon + language code (🇬🇧 EN / 🇪🇸 ES)",
+        "dropdownOptions": [
+          "English (English)",
+          "Español (Spanish)"
+        ],
+        "behavior": "Changes locale and refreshes page with new language"
+      },
+      "routingStrategy": {
+        "type": "Prefix-based routing",
+        "examples": [
+          "/en/dashboard",
+          "/es/dashboard",
+          "/en/projects",
+          "/es/proyectos"
+        ],
+        "defaultLocale": "en",
+        "localeDetection": "Browser language or stored preference"
+      },
+      "implementationSteps": [
+        {
+          "step": 1,
+          "action": "Install next-intl package"
+        },
+        {
+          "step": 2,
+          "action": "Create messages folder with en.json and es.json"
+        },
+        {
+          "step": 3,
+          "action": "Configure i18n routing in src/i18n/routing.ts"
+        },
+        {
+          "step": 4,
+          "action": "Create middleware.ts for locale detection"
+        },
+        {
+          "step": 5,
+          "action": "Restructure app directory to [locale] folder structure"
+        },
+        {
+          "step": 6,
+          "action": "Create translation keys for all UI text"
+        },
+        {
+          "step": 7,
+          "action": "Replace hardcoded strings with useTranslations hook"
+        },
+        {
+          "step": 8,
+          "action": "Create LanguageSwitcher component"
+        },
+        {
+          "step": 9,
+          "action": "Add LanguageSwitcher to navbar"
+        },
+        {
+          "step": 10,
+          "action": "Translate all content to Spanish"
+        },
+        {
+          "step": 11,
+          "action": "Test all pages in both languages"
+        }
+      ],
+      "specialConsiderations": [
+        {
+          "item": "Date formatting",
+          "description": "Use Intl.DateTimeFormat with locale parameter"
+        },
+        {
+          "item": "Number formatting",
+          "description": "Use Intl.NumberFormat for currency and numbers"
+        },
+        {
+          "item": "Pluralization",
+          "description": "Use next-intl's plural support for dynamic counts"
+        },
+        {
+          "item": "RTL support",
+          "description": "Not required for Spanish, but architecture should support future RTL languages"
+        },
+        {
+          "item": "Dynamic content",
+          "description": "API responses may need translation or locale-specific content"
+        }
+      ],
+      "dependencies": [
+        "navbar-002",
+        "responsive-001",
+        "theme-001"
+      ],
+      "acceptanceCriteria": [
+        "Language switcher visible in navbar",
+        "User can switch between English and Spanish",
+        "Language preference persists across sessions",
+        "All UI text is translated in both languages",
+        "Navigation menu items translated",
+        "Form labels and placeholders translated",
+        "Button text translated",
+        "Error messages translated",
+        "Success messages translated",
+        "Date formats respect locale (MM/DD/YYYY vs DD/MM/YYYY)",
+        "Number formats respect locale",
+        "URLs include locale prefix (/en/ or /es/)",
+        "Browser language detection works",
+        "Automatic redirect to preferred language",
+        "No untranslated strings visible",
+        "Translation quality is professional and accurate",
+        "Context-appropriate translations (formal/informal)",
+        "All authentication pages translated",
+        "All dashboard content translated",
+        "Email templates available in both languages"
+      ]
     }
   }
 }
