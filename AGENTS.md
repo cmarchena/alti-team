@@ -1,182 +1,167 @@
 # AGENTS.md
 
-This document provides guidelines for AI coding agents working on this project.
+Guidelines for AI coding agents working on this monorepo.
 
 ## Project Overview
 
-AltiTeam is a team and project management application with a monorepo structure using Git submodules:
+AltiTeam is a team/project management app with Git submodules:
 
 ```
-alti-team/           # Parent repo (E2E tests, docs, infrastructure)
+alti-team/           # Parent repo
 ├── front/           # Next.js 14 frontend (submodule)
-├── back/            # Backend API (submodule)
+├── back/            # Express backend (submodule)
 ├── tests/           # Playwright E2E tests
-├── docs/            # Documentation
-├── plans/           # Ralph workflow (autonomous task mode)
-└── schema.sql/      # Database schema
+├── plans/           # Ralph autonomous task files
+└── skills/          # Pattern documentation
 ```
 
 ## Build/Lint/Test Commands
 
-### Root Level (Monorepo)
-
-```bash
-# Install dependencies
-pnpm install
-
-# Initialize and update submodules
-git submodule update --init --recursive
-
-# Run E2E tests
-pnpm test:e2e
-pnpm test:e2e -- tests/auth.spec.ts      # Run single E2E test file
-
-# Show E2E test report
-pnpm test:e2e:report
-```
-
 ### Frontend (front/)
 
 ```bash
-cd front
-
 pnpm install          # Install dependencies
-pnpm dev              # Start development server (http://localhost:3000)
-pnpm build            # Build for production
+pnpm dev              # Start dev server (localhost:3000)
+pnpm build            # Production build
 pnpm lint             # Run ESLint
-pnpm test             # Run Jest unit tests
-pnpm test -- src/lib/repositories/__tests__/file.test.ts  # Run single test
 npx tsc --noEmit      # Check TypeScript errors
+
+# Jest unit tests
+pnpm test                                                # Run all tests
+pnpm test -- src/lib/repositories/__tests__/file.test.ts # Single test file
+pnpm test -- --testNamePattern="should create"           # Tests matching pattern
+
+# Playwright E2E tests
+pnpm test:e2e                             # Run all E2E tests
+pnpm test:e2e -- --project=chromium       # Specific browser
+pnpm test:e2e:report                      # Show HTML report
 ```
 
 ### Backend (back/)
 
 ```bash
-cd back
-
-pnpm install
-pnpm dev              # Start backend server
-pnpm build
-pnpm lint
-pnpm test
-npx tsc --noEmit
+pnpm dev              # Start dev server
+pnpm build            # Compile TypeScript
+pnpm test             # Run Jest tests
+npx tsc --noEmit      # Check TypeScript errors
 ```
 
 ### Database
 
 ```bash
-# Start PostgreSQL with Docker
-docker-compose up -d
-
-# Stop containers
-docker-compose down
-
-# View database at Adminer: http://localhost:8080
-# System: PostgreSQL, Server: postgres, User: alti_team, Password: password123
+docker-compose up -d    # Start PostgreSQL
+docker-compose down     # Stop containers
+# Adminer: http://localhost:8080 (postgres/alti_team/password123)
 ```
 
 ## Code Style Guidelines
 
-### TypeScript
+### TypeScript & Imports
 
-- Strict mode enabled in `tsconfig.json`
-- Use `@/*` path aliases for imports: `import X from "@/lib/x"`
-- Avoid implicit `any` types - `noImplicitAny: true`
-- Use optional chaining for nullable properties: `item?.department?.name`
+- **Strict mode** - no implicit `any`
+- **Path alias**: Use `@/*` for imports
+- **Import order**: External packages → Internal aliases → Relative paths
 
-### Formatting & Linting
+```typescript
+import { useState, useMemo, useCallback } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { getRepositories } from '@/lib/repositories'
+import { success, failure, isSuccess } from '@/lib/result'
+```
+
+### Formatting & Naming
 
 - **Prettier**: `semi: false`, `singleQuote: true`
 - **ESLint**: Extends `next/core-web-vitals`
-- Run `pnpm lint` before committing
-
-### Naming Conventions
-
-| Type | Convention | Example |
-|------|------------|---------|
-| Components | kebab-case | `user-profile.tsx` |
-| Utilities | camelCase | `auth.ts` |
-| Variables/Functions | camelCase | `userId`, `getUserById` |
-| Types/Interfaces | PascalCase | `User`, `IUserRepository` |
-| Constants | UPPER_SNAKE_CASE | `MAX_RETRIES` |
+- Components: kebab-case (`user-profile.tsx`), Variables: camelCase (`userId`)
+- Types: PascalCase (`User`), Constants: UPPER_SNAKE_CASE (`MAX_RETRIES`)
 
 ### Error Handling
 
-Use `Result<T, E>` type from `@/lib/result` instead of exceptions. See `skills/result-type.md` for detailed usage.
+Use `Result<T, E>` - never throw exceptions:
+
+```typescript
+import { success, failure, isSuccess } from '@/lib/result'
+
+function findUser(id: string): Result<User, 'not_found'> {
+  const user = users.find((u) => u.id === id)
+  if (!user) return failure('not_found')
+  return success(user)
+}
+```
 
 ### Repository Pattern
 
-Abstract data access with repositories. See `skills/repository-pattern.md` for detailed usage.
+```typescript
+import { getRepositories } from '@/lib/repositories'
+const repos = getRepositories()
+const user = await repos.users.findById(id)
+```
 
-### API Response Shape
+| Environment | Data Layer | Command |
+|-------------|------------|---------|
+| Development | In-memory | `pnpm dev` |
+| Staging | PostgreSQL | `USE_POSTGRES=true pnpm dev` |
+| Production | PostgreSQL | `pnpm build && pnpm start` |
 
-Return nested objects instead of IDs when frontend needs related data. See `skills/api-response-shape.md` for examples.
+### React Best Practices
 
-### React Components
+- Functional components with TypeScript interfaces
+- Handle loading/error states explicitly
+- Memoize values passed to context/hooks to prevent infinite loops
+- Use CSS variables for theming: `bg-background`, `text-foreground`, `border-border`
 
-- Use functional components with TypeScript interfaces
-- Handle loading and error states explicitly
-- Use shadcn/ui components from `@/components/ui/...`
+### Internationalization
 
 ```typescript
-const [loading, setLoading] = useState(true)
-const [error, setError] = useState<string | null>(null)
-
-if (loading) return <LoadingSpinner />
-if (error) return <ErrorMessage error={error} />
+import { useLanguage } from '@/components/language-provider'
+const { t } = useLanguage()
+return <h1>{t('navigation.dashboard')}</h1>
 ```
-
-## Git Submodule Workflow
-
-**Always commit submodules before the parent repo.** See `skills/submodule-workflow.md` for detailed workflow.
-
-Check submodule status:
-```bash
-git submodule status
-```
-
-## Next.js App Router Structure
-
-Create routes in this order:
-
-```
-src/app/
-├── [route]/              # Parent route (create first!)
-│   ├── page.tsx          # Listing/index page
-│   ├── [id]/
-│   │   ├── page.tsx      # Detail page
-│   │   ├── edit/page.tsx # Child routes
-│   │   └── analytics/page.tsx
-│   └── new/page.tsx      # Create new page
-```
-
-**Important**: Create parent routes before child routes that link to them.
 
 ## Testing Strategy
 
-**Before marking tasks as done:**
+**Before marking tasks complete:**
 
-1. `npx tsc --noEmit` passes (in front/ and back/)
+1. `npx tsc --noEmit` passes
 2. `pnpm lint` passes
 3. `pnpm test` passes
-4. `pnpm test:e2e` passes
+4. `pnpm test:e2e` passes (if applicable)
 5. `pnpm build` succeeds
-
-### Test Locations
 
 | Type | Location |
 |------|----------|
 | Jest unit | `src/**/__tests__/**/*.test.ts` |
 | Playwright E2E | `tests/**/*.spec.ts` |
 
-## Ralph Workflow (Autonomous Task Mode)
+## Next.js App Router
+
+Create routes in order (parent before children):
+
+```
+src/app/
+├── [route]/
+│   ├── page.tsx          # Index page
+│   ├── [id]/page.tsx     # Detail page
+│   └── new/page.tsx
+```
+
+## Git Submodule Workflow
+
+**Always commit submodules before the parent repo.**
+
+```bash
+git submodule status
+git submodule update --init --recursive
+```
+
+## Ralph Workflow
 
 ```
 plans/
 ├── prd.json          # Tasks with status: "pending" or "done"
 ├── progress.txt      # Memory between iterations (append mode)
-├── ralph.sh          # Autonomous mode
-└── ralph-once.sh     # Human-in-the-loop mode
+└── ralph.sh          # Autonomous execution
 ```
 
 Process features where `status != "done"`.
@@ -184,22 +169,19 @@ Process features where `status != "done"`.
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
-- **Database**: PostgreSQL (dev: in-memory)
+- **Database**: PostgreSQL (in-memory in dev)
 - **Auth**: NextAuth.js with JWT
 - **UI**: shadcn/ui + Tailwind CSS
 - **Testing**: Jest + Playwright
 - **Package Manager**: pnpm
-- **Containerization**: Docker Compose
 
 ## Verification Checklist
 
-After implementing features:
-
-- [ ] TypeScript compiles: `npx tsc --noEmit`
-- [ ] Linting passes: `pnpm lint`
-- [ ] Unit tests pass: `pnpm test`
-- [ ] E2E tests pass: `pnpm test:e2e`
-- [ ] Build succeeds: `pnpm build`
-- [ ] Submodules committed and pushed in correct order
-- [ ] Parent routes exist before child routes
-- [ ] API responses match frontend interface expectations
+- [ ] TypeScript: `npx tsc --noEmit`
+- [ ] Lint: `pnpm lint`
+- [ ] Tests: `pnpm test`
+- [ ] E2E: `pnpm test:e2e`
+- [ ] Build: `pnpm build`
+- [ ] Submodules committed before parent
+- [ ] No hardcoded colors (use CSS variables)
+- [ ] Memoized context/hook values
