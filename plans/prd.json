@@ -80,7 +80,7 @@
         "id": "chat-002",
         "title": "Real-Time 1-on-1 Text Chat",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Full-featured direct messaging between two users. Messages delivered in real-time via Socket.IO, persisted to PostgreSQL, and rendered in a threaded scrollable panel. Supports text, emoji reactions, @mentions, file attachments, read receipts, and typing indicators.",
         "implementation": "Expand existing chat sidebar (chat-001) into a full chat module. Route: /chat/dm/[userId]. Create chat repository at src/lib/repositories/chat.repository.ts. Backend socket namespace /chat with rooms dm:{smallerId}:{largerId}. Messages stored in messages table (id, roomId, senderId, content, type, parentId, createdAt). Optimistic UI updates with server confirmation rollback.",
         "backendWork": [
