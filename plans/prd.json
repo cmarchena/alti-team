@@ -1,1529 +1,759 @@
 {
-  "projectName": "AltiTeam UI Navigation & Chat Interface",
-  "version": "2.1.0",
-  "description": "Enhanced navigation with collapsible sidebar, persistent navbar, integrated chat panel, and bug fixes",
+  "projectName": "AltiTeam Real-Time & Synchronous Collaboration",
+  "version": "3.0.0",
+  "description": "Full-stack synchronous collaboration layer: real-time 1-on-1 and group text chat, WebRTC video/audio calls, one-to-many live sessions, presence system, calendar with external sync, meeting scheduling, collaborative agendas, screen sharing, recording, AI transcription, auto-summarisation, and meeting minutes with task assignment.",
+  "architectureNotes": {
+    "realtimeTransport": "Socket.IO on the Express back-end (back/) for all real-time events (chat, presence, signalling). Namespaces: /chat, /presence, /signalling, /live.",
+    "videoInfrastructure": "Self-hosted LiveKit server (Docker) for WebRTC media routing. Front-end uses livekit-client SDK. Back-end issues short-lived access tokens via LiveKit Server SDK.",
+    "aiPipeline": "OpenAI Whisper API for speech-to-text transcription of recordings. OpenAI GPT-4o (or Anthropic claude-3-5-sonnet) for summarisation and meeting-minutes generation. Provider abstracted behind a back/src/services/ai-provider.ts interface so it can be swapped.",
+    "calendarSync": "Google Calendar API (OAuth 2.0) and Microsoft Graph API (OAuth 2.0 / MSAL) for external calendar read/write. In-app calendar is the source of truth; external events are mirrored via webhooks.",
+    "storage": "Recordings stored to S3-compatible object storage (MinIO in dev, AWS S3 in prod). Transcripts and summaries stored in PostgreSQL.",
+    "newPackagesFrontend": [
+      "livekit-client",
+      "@livekit/components-react",
+      "socket.io-client",
+      "date-fns",
+      "@fullcalendar/react",
+      "@fullcalendar/daygrid",
+      "@fullcalendar/timegrid",
+      "@fullcalendar/interaction",
+      "react-resizable-panels",
+      "wavesurfer.js"
+    ],
+    "newPackagesBackend": [
+      "socket.io",
+      "livekit-server-sdk",
+      "openai",
+      "@anthropic-ai/sdk",
+      "googleapis",
+      "@microsoft/microsoft-graph-client",
+      "@azure/msal-node",
+      "multer",
+      "aws-sdk",
+      "node-cron",
+      "ioredis"
+    ]
+  },
   "features": {
-    "sidebar": {
-      "sidebar-001": {
-        "id": "sidebar-001",
-        "title": "Collapsible Sidebar with Menus",
+    "presence": {
+        "presence-001": {
+        "id": "presence-001",
+        "title": "User Presence & Availability System",
         "priority": "critical",
         "status": "done",
-        "implementation": "Create collapsible sidebar component at src/components/layout/sidebar.tsx using shadcn/ui: Collapsible, Tooltip, Button",
-        "description": "Create a collapsible sidebar with menu items organized in logical groups",
-        "shadcnComponents": [
-          "Collapsible",
-          "Tooltip",
-          "Button"
+        "description": "Real-time presence tracking: online/away/busy/do-not-disturb/offline statuses with user-set custom status messages and automatic idle detection. Presence state is broadcast over Socket.IO /presence namespace and stored in Redis for fast fan-out.",
+        "implementation": "Create presence context at src/contexts/PresenceContext.tsx. Connect to Socket.IO /presence namespace on auth. Emit heartbeat every 30 s; server marks user away after 5 min of silence, offline after 15 min. Status stored in Redis hash presence:{userId}. Expose usePresence(userId) hook that subscribes to presence:{userId} events. Show coloured dot badge on avatars throughout the app.",
+        "backendWork": [
+          "back/src/sockets/presence.socket.ts — namespace /presence with events: join, heartbeat, set-status, disconnect",
+          "back/src/services/presence.service.ts — Redis get/set with TTL, fan-out to connected clients in same org",
+          "back/src/routes/presence.route.ts — REST GET /api/presence/batch for bulk status fetch on page load"
         ],
-        "menuItems": [
-          {
-            "name": "Dashboard",
-            "icon": "layout-dashboard",
-            "path": "/dashboard"
-          },
-          {
-            "name": "Projects",
-            "icon": "folder-kanban",
-            "path": "/projects",
-            "subItems": [
-              {
-                "name": "All Projects",
-                "path": "/projects"
-              },
-              {
-                "name": "My Projects",
-                "path": "/projects/my"
-              },
-              {
-                "name": "Archived",
-                "path": "/projects/archived"
-              }
-            ]
-          },
-          {
-            "name": "Tasks",
-            "icon": "check-square",
-            "path": "/tasks",
-            "subItems": [
-              {
-                "name": "All Tasks",
-                "path": "/tasks"
-              },
-              {
-                "name": "My Tasks",
-                "path": "/tasks/my"
-              },
-              {
-                "name": "Overdue",
-                "path": "/tasks/overdue"
-              }
-            ]
-          },
-          {
-            "name": "Teams",
-            "icon": "users",
-            "path": "/teams"
-          },
-          {
-            "name": "Departments",
-            "icon": "building",
-            "path": "/departments"
-          },
-          {
-            "name": "Processes",
-            "icon": "git-branch",
-            "path": "/processes"
-          },
-          {
-            "name": "Resources",
-            "icon": "file-text",
-            "path": "/resources"
-          },
-          {
-            "name": "Settings",
-            "icon": "settings",
-            "path": "/settings"
-          }
+        "frontendFiles": [
+          "src/contexts/PresenceContext.tsx",
+          "src/hooks/usePresence.ts",
+          "src/components/presence/presence-badge.tsx",
+          "src/components/presence/status-picker.tsx"
+        ],
+        "shadcnComponents": ["Popover", "DropdownMenu", "Badge", "Tooltip"],
+        "statuses": [
+          { "key": "online", "color": "green", "label": "Online" },
+          { "key": "away", "color": "yellow", "label": "Away" },
+          { "key": "busy", "color": "red", "label": "Busy" },
+          { "key": "dnd", "color": "red", "label": "Do Not Disturb" },
+          { "key": "offline", "color": "gray", "label": "Offline" }
         ],
         "dependencies": [],
         "acceptanceCriteria": [
-          "Sidebar collapses and expands with animation",
-          "Menu items are organized in logical groups",
-          "Submenus expand/collapse properly",
-          "State persists in localStorage"
-        ]
-      }
-    },
-    "navbar": {
-      "navbar-001": {
-        "id": "navbar-001",
-        "title": "Persistent Top Navbar",
-        "priority": "critical",
-        "status": "done",
-        "implementation": "Create persistent navbar at src/components/layout/navbar.tsx that wraps all pages via root layout using shadcn/ui: Button, DropdownMenu, Input, Sheet, ScrollArea",
-        "description": "Create a persistent top navbar visible on all pages",
-        "shadcnComponents": [
-          "Button",
-          "DropdownMenu",
-          "Input",
-          "Sheet",
-          "ScrollArea"
-        ],
-        "components": [
-          {
-            "name": "Page Title/Breadcrumb",
-            "description": "Display current page title or breadcrumb navigation"
-          },
-          {
-            "name": "User Profile Dropdown",
-            "description": "User avatar with dropdown for profile, settings, logout"
-          },
-          {
-            "name": "Notification Bell",
-            "description": "Icon with badge showing unread notification count"
-          },
-          {
-            "name": "Search Bar",
-            "description": "Global search input for quick navigation"
-          },
-          {
-            "name": "Alti Button",
-            "description": "Button to open chat sidebar"
-          }
-        ],
-        "dependencies": [
-          "sidebar-001"
-        ],
-        "acceptanceCriteria": [
-          "Navbar visible on all routes",
-          "Responsive design (mobile-friendly)",
-          "User can access profile and logout"
-        ]
-      },
-      "navbar-002": {
-        "id": "navbar-002",
-        "title": "Merge Duplicate Navigation Bars",
-        "priority": "high",
-        "status": "done",
-        "implementation": "Refactor navbar.tsx to consolidate the global navbar and page-specific headers into a single navigation bar. Create a flexible slot/props system to accommodate page-specific action buttons (e.g., '+ New Project', 'Sign out') alongside global navigation elements",
-        "description": "Merge the two existing navigation bars (global navbar and page-specific header) into a single, unified navbar to eliminate redundancy and improve UI consistency",
-        "shadcnComponents": [
-          "Button",
-          "DropdownMenu",
-          "Input",
-          "Sheet",
-          "ScrollArea"
-        ],
-        "components": [
-          {
-            "name": "Left Section",
-            "description": "Page Title/Breadcrumb navigation"
-          },
-          {
-            "name": "Center Section (Optional)",
-            "description": "Global search bar"
-          },
-          {
-            "name": "Right Section",
-            "description": "Page-specific action buttons slot, Alti button, Notification bell, User profile dropdown"
-          }
-        ],
-        "technicalApproach": [
-          "Create a props interface that accepts pageTitle, breadcrumbs, and actionButtons",
-          "Use React children or slots pattern to allow pages to inject their specific action buttons",
-          "Maintain all existing navbar functionality (search, notifications, profile, Alti chat)",
-          "Ensure responsive behavior on mobile devices"
-        ],
-        "dependencies": [
-          "navbar-001"
-        ],
-        "acceptanceCriteria": [
-          "Only one navigation bar visible across all pages",
-          "Page-specific action buttons render in the navbar right section",
-          "All global navigation elements remain functional",
-          "No duplicate page titles",
-          "Responsive design maintained",
-          "All existing pages (Dashboard, Projects, Tasks, Teams) work with merged navbar"
+          "User status dot appears on all avatars across sidebar, chat lists, and member directories",
+          "Status updates propagate to all online org members within 1 s",
+          "User can manually set status from navbar avatar dropdown",
+          "Idle detection sets status to away after 5 min without input",
+          "Custom status message (max 100 chars) shown in tooltips",
+          "Redis TTL prevents stale presence entries surviving server restart",
+          "Status persists across page navigations (socket reconnects)",
+          "Presence badge visible in 1-on-1 and group chat headers"
         ]
       }
     },
     "chat": {
-      "chat-001": {
-        "id": "chat-001",
-        "title": "Chat Sidebar - Alti Button",
+      "chat-002": {
+        "id": "chat-002",
+        "title": "Real-Time 1-on-1 Text Chat",
         "priority": "critical",
-        "status": "done",
-        "implementation": "Create chat sidebar at src/components/chat/chat-sidebar.tsx using shadcn/ui: Sheet (configured as right-side drawer), Button, Input, ScrollArea",
-        "description": "Create right-side slide-in chat panel triggered by Alti button",
-        "shadcnComponents": [
-          "Sheet",
-          "Button",
-          "Input",
-          "ScrollArea"
+        "status": "pending",
+        "description": "Full-featured direct messaging between two users. Messages delivered in real-time via Socket.IO, persisted to PostgreSQL, and rendered in a threaded scrollable panel. Supports text, emoji reactions, @mentions, file attachments, read receipts, and typing indicators.",
+        "implementation": "Expand existing chat sidebar (chat-001) into a full chat module. Route: /chat/dm/[userId]. Create chat repository at src/lib/repositories/chat.repository.ts. Backend socket namespace /chat with rooms dm:{smallerId}:{largerId}. Messages stored in messages table (id, roomId, senderId, content, type, parentId, createdAt). Optimistic UI updates with server confirmation rollback.",
+        "backendWork": [
+          "back/src/sockets/chat.socket.ts — /chat namespace; events: join-room, send-message, typing, read-receipt, add-reaction, delete-message",
+          "back/src/services/chat.service.ts — message CRUD, room management",
+          "back/src/routes/chat.route.ts — REST GET /api/chat/rooms, GET /api/chat/rooms/:roomId/messages (pagination cursor-based)"
         ],
-        "features": [
-          {
-            "name": "Slide-in Panel",
-            "description": "Right-side panel that slides in when Alti button is clicked"
-          },
-          {
-            "name": "Chat Interface",
-            "description": "Complete chat feature interface within the sidebar"
-          },
-          {
-            "name": "Animation",
-            "description": "Smooth slide animation from right side"
-          },
-          {
-            "name": "Close Behavior",
-            "description": "Closes when clicking outside or pressing Escape key"
-          }
+        "frontendFiles": [
+          "src/app/(app)/chat/dm/[userId]/page.tsx",
+          "src/components/chat/message-list.tsx",
+          "src/components/chat/message-bubble.tsx",
+          "src/components/chat/message-input.tsx",
+          "src/components/chat/typing-indicator.tsx",
+          "src/components/chat/reaction-picker.tsx",
+          "src/components/chat/chat-header.tsx",
+          "src/components/chat/file-attachment.tsx",
+          "src/lib/repositories/chat.repository.ts"
         ],
-        "dependencies": [
-          "navbar-001"
-        ],
-        "acceptanceCriteria": [
-          "Button opens chat sidebar from right",
-          "Chat functionality works within sidebar",
-          "Sidebar overlays main content (not pushing it)"
-        ]
-      }
-    },
-    "layout": {
-      "layout-001": {
-        "id": "layout-001",
-        "title": "Conditional Layout Rendering for Auth Pages",
-        "priority": "critical",
-        "status": "done",
-        "implementation": "Modify root layout at src/app/layout.tsx or create separate layout for auth routes at src/app/(auth)/layout.tsx to conditionally render sidebar and navbar. Use Next.js route groups to separate authenticated and public layouts",
-        "description": "Hide sidebar and navbar on authentication pages (sign in, sign up, forgot password, reset password) to provide a clean, focused authentication experience",
-        "shadcnComponents": [],
-        "technicalApproach": [
-          "Option 1: Create route group (auth) with separate layout.tsx that excludes sidebar/navbar",
-          "Option 2: Use pathname detection in root layout to conditionally render navigation components",
-          "Recommended: Use Next.js 13+ route groups for cleaner separation"
-        ],
-        "authRoutes": [
-          "/auth/signin",
-          "/auth/signup",
-          "/auth/forgot-password",
-          "/auth/reset-password",
-          "/auth/verify-email"
-        ],
-        "layoutStructure": {
-          "authLayout": {
-            "path": "src/app/(auth)/layout.tsx",
-            "includes": [
-              "Auth pages only",
-              "No sidebar",
-              "No navbar",
-              "Optional auth-specific header/footer"
-            ]
-          },
-          "appLayout": {
-            "path": "src/app/(app)/layout.tsx",
-            "includes": [
-              "All authenticated pages",
-              "Sidebar",
-              "Navbar",
-              "Chat sidebar"
-            ]
+        "shadcnComponents": ["ScrollArea", "Input", "Button", "Popover", "Tooltip", "Badge", "Avatar", "Separator"],
+        "dataModel": {
+          "messages": {
+            "id": "uuid",
+            "roomId": "string",
+            "senderId": "uuid",
+            "content": "text",
+            "type": "text | file | image | system",
+            "parentId": "uuid | null (for threads)",
+            "reactions": "jsonb",
+            "editedAt": "timestamp | null",
+            "deletedAt": "timestamp | null",
+            "createdAt": "timestamp"
           }
         },
-        "dependencies": [
-          "sidebar-001",
-          "navbar-001"
-        ],
-        "acceptanceCriteria": [
-          "Sidebar not visible on any auth pages",
-          "Navbar not visible on any auth pages",
-          "Auth pages have clean, centered layout",
-          "Navigation components render normally on all non-auth pages",
-          "No layout shift when transitioning between auth and app pages",
-          "Responsive design maintained on auth pages"
-        ]
-      }
-    },
-    "authentication": {
-      "auth-001": {
-        "id": "auth-001",
-        "title": "Sign In Page Implementation",
-        "priority": "critical",
-        "status": "done",
-        "implementation": "Create sign in page at src/app/(auth)/signin/page.tsx with email/password and OAuth provider authentication following backend API specifications",
-        "description": "Implement complete sign in functionality with email/password authentication and OAuth providers (Google, Microsoft) with proper JWT token handling",
-        "shadcnComponents": [
-          "Form",
-          "Input",
-          "Button",
-          "Card",
-          "Label",
-          "Separator"
-        ],
         "features": [
-          {
-            "name": "Email/Password Authentication",
-            "description": "Traditional login with email and password validation",
-            "endpoint": "POST /api/auth/login",
-            "requestBody": {
-              "email": "string",
-              "password": "string"
-            },
-            "responseHandling": "Set httpOnly cookies for access and refresh tokens"
-          },
-          {
-            "name": "Google OAuth",
-            "description": "Sign in with Google account",
-            "endpoint": "GET /api/auth/google",
-            "redirectUri": "Configured in backend GOOGLE_REDIRECT_URI"
-          },
-          {
-            "name": "Microsoft OAuth",
-            "description": "Sign in with Microsoft account",
-            "endpoint": "GET /api/auth/microsoft",
-            "redirectUri": "Configured in backend MICROSOFT_REDIRECT_URI"
-          },
-          {
-            "name": "Remember Me",
-            "description": "Optional checkbox to extend session duration"
-          },
-          {
-            "name": "Forgot Password Link",
-            "description": "Link to password reset flow"
-          },
-          {
-            "name": "Form Validation",
-            "description": "Client-side validation for email format and required fields"
-          },
-          {
-            "name": "Error Handling",
-            "description": "Display authentication errors (invalid credentials, account locked, etc.)"
-          },
-          {
-            "name": "Loading States",
-            "description": "Show loading indicators during authentication"
-          }
+          "Real-time delivery via Socket.IO",
+          "Cursor-based infinite scroll for history",
+          "Typing indicators with debounce (stop after 3 s)",
+          "Read receipts (single tick = sent, double tick = read)",
+          "Emoji reactions (click to add/remove)",
+          "Threaded replies (one level deep)",
+          "File & image attachments (up to 25 MB, stored S3)",
+          "Message edit and soft-delete",
+          "Link preview unfurling",
+          "Jump-to-unread button"
         ],
-        "securityRequirements": [
-          "Use HTTPS in production",
-          "Implement CSRF protection",
-          "HttpOnly cookies for tokens",
-          "Secure cookie flag in production",
-          "SameSite strict cookie policy",
-          "Rate limiting on login attempts"
-        ],
-        "tokenHandling": {
-          "accessToken": {
-            "storage": "httpOnly cookie",
-            "expiry": "15 minutes (ACCESS_TOKEN_EXPIRY)",
-            "usage": "Authorization header for API requests"
-          },
-          "refreshToken": {
-            "storage": "httpOnly cookie",
-            "expiry": "7 days (REFRESH_TOKEN_EXPIRY)",
-            "usage": "Refresh access token when expired"
-          }
-        },
-        "dependencies": [
-          "layout-001"
-        ],
+        "dependencies": ["presence-001"],
         "acceptanceCriteria": [
-          "User can sign in with valid email/password",
-          "User can sign in with Google OAuth",
-          "User can sign in with Microsoft OAuth",
-          "Invalid credentials show appropriate error message",
-          "Successful login redirects to dashboard",
-          "Tokens stored securely in httpOnly cookies",
-          "Form validation prevents submission of invalid data",
-          "Loading states displayed during authentication",
-          "Error messages are user-friendly and helpful",
-          "Responsive design works on all screen sizes"
+          "Messages appear on recipient screen within 500 ms on local network",
+          "History loads via pagination (50 messages per page)",
+          "Typing indicator appears within 1 s and disappears 3 s after user stops",
+          "Read receipts update correctly for both participants",
+          "File attachments upload with progress bar and can be downloaded",
+          "Emoji reactions toggle on click; count displayed",
+          "Edited messages show (edited) label",
+          "Deleted messages show 'Message deleted' placeholder",
+          "Thread replies open in side panel without navigating away",
+          "All interactions work in both light and dark theme",
+          "All strings use t() for i18n"
         ]
       },
-      "auth-002": {
-        "id": "auth-002",
-        "title": "Sign Up Page Implementation",
+      "chat-003": {
+        "id": "chat-003",
+        "title": "Real-Time Group Text Chat",
         "priority": "critical",
-        "status": "done",
-        "implementation": "Create sign up page at src/app/(auth)/signup/page.tsx with email/password registration and OAuth provider signup following backend API specifications",
-        "description": "Implement complete sign up functionality with email/password registration, OAuth providers, and email verification",
-        "shadcnComponents": [
-          "Form",
-          "Input",
-          "Button",
-          "Card",
-          "Label",
-          "Separator",
-          "Checkbox"
+        "status": "pending",
+        "description": "Multi-user group channels scoped to teams or projects. Supports all 1-on-1 chat features plus channel management: create/rename/archive channels, add/remove members, pin messages, and channel-level notification preferences.",
+        "implementation": "Route: /chat/channel/[channelId]. Room ID is channel:{channelId}. Channel entity stored in channels table (id, name, teamId | projectId, createdBy, isArchived). Membership in channel_members table. Pin state in pinned_messages table. Sidebar shows channel list grouped by workspace (team/project), sorted by most recent activity.",
+        "backendWork": [
+          "back/src/sockets/chat.socket.ts — extend /chat with group events: join-channel, leave-channel, pin-message, update-channel",
+          "back/src/routes/channel.route.ts — CRUD for channels and membership"
         ],
-        "features": [
-          {
-            "name": "Email/Password Registration",
-            "description": "New user registration with email and password",
-            "endpoint": "POST /api/auth/register",
-            "requestBody": {
-              "email": "string",
-              "password": "string",
-              "firstName": "string",
-              "lastName": "string",
-              "acceptTerms": "boolean"
-            }
-          },
-          {
-            "name": "Google OAuth Signup",
-            "description": "Sign up with Google account",
-            "endpoint": "GET /api/auth/google"
-          },
-          {
-            "name": "Microsoft OAuth Signup",
-            "description": "Sign up with Microsoft account",
-            "endpoint": "GET /api/auth/microsoft"
-          },
-          {
-            "name": "Password Strength Indicator",
-            "description": "Visual indicator of password strength with requirements"
-          },
-          {
-            "name": "Email Verification",
-            "description": "Send welcome email with verification link (SEND_WELCOME_EMAIL=true)"
-          },
-          {
-            "name": "Terms and Conditions",
-            "description": "Checkbox to accept terms and privacy policy"
-          },
-          {
-            "name": "Form Validation",
-            "description": "Validate email format, password requirements, required fields"
-          },
-          {
-            "name": "Error Handling",
-            "description": "Display registration errors (email already exists, weak password, etc.)"
-          }
+        "frontendFiles": [
+          "src/app/(app)/chat/channel/[channelId]/page.tsx",
+          "src/components/chat/channel-sidebar.tsx",
+          "src/components/chat/channel-header.tsx",
+          "src/components/chat/pinned-messages-panel.tsx",
+          "src/components/chat/member-list-panel.tsx",
+          "src/components/chat/channel-settings-dialog.tsx"
         ],
-        "passwordRequirements": [
-          "Minimum 8 characters",
-          "At least one uppercase letter",
-          "At least one lowercase letter",
-          "At least one number",
-          "At least one special character"
-        ],
-        "emailConfiguration": {
-          "welcomeEmail": {
-            "enabled": "SEND_WELCOME_EMAIL environment variable",
-            "type": "welcome_email",
-            "delay": "Immediate in development, 1 min in staging, 5 min in production",
-            "content": "Welcome message with account verification link"
-          }
-        },
-        "dependencies": [
-          "layout-001",
-          "auth-001"
-        ],
+        "shadcnComponents": ["Sheet", "Dialog", "Input", "Button", "ScrollArea", "Badge", "Tabs", "Switch"],
+        "channelTypes": ["team", "project", "private-group", "announcement"],
+        "dependencies": ["chat-002"],
         "acceptanceCriteria": [
-          "User can register with valid email/password",
-          "User can sign up with Google OAuth",
-          "User can sign up with Microsoft OAuth",
-          "Password meets strength requirements",
-          "Email already registered shows error",
-          "Welcome email sent after successful registration",
-          "User redirected to email verification page or dashboard",
-          "Terms and conditions must be accepted",
-          "Form validation prevents invalid submissions",
-          "Loading states displayed during registration",
-          "Responsive design works on all screen sizes"
-        ]
-      },
-      "auth-003": {
-        "id": "auth-003",
-        "title": "Authentication Context and Token Management",
-        "priority": "critical",
-        "status": "done",
-        "implementation": "Create authentication context at src/contexts/AuthContext.tsx to manage user authentication state, token refresh, and protected routes",
-        "description": "Implement React context for global authentication state management with automatic token refresh and protected route handling",
-        "shadcnComponents": [],
-        "features": [
-          {
-            "name": "Auth Context Provider",
-            "description": "Global state for user authentication status and user data"
-          },
-          {
-            "name": "Token Refresh Logic",
-            "description": "Automatically refresh access token using refresh token before expiry"
-          },
-          {
-            "name": "Protected Route Wrapper",
-            "description": "HOC or component to protect authenticated routes"
-          },
-          {
-            "name": "Logout Functionality",
-            "description": "Clear tokens and redirect to login"
-          },
-          {
-            "name": "Session Persistence",
-            "description": "Check authentication status on app load"
-          }
-        ],
-        "apiEndpoints": [
-          {
-            "endpoint": "POST /api/auth/refresh",
-            "description": "Refresh access token using refresh token cookie"
-          },
-          {
-            "endpoint": "POST /api/auth/logout",
-            "description": "Invalidate tokens and clear cookies"
-          },
-          {
-            "endpoint": "GET /api/auth/me",
-            "description": "Get current authenticated user data"
-          }
-        ],
-        "contextInterface": {
-          "user": "User object or null",
-          "isAuthenticated": "boolean",
-          "isLoading": "boolean",
-          "login": "function(email, password)",
-          "logout": "function()",
-          "refreshToken": "function()",
-          "checkAuth": "function()"
-        },
-        "tokenRefreshStrategy": [
-          "Monitor access token expiry (15 minutes)",
-          "Automatically refresh 2 minutes before expiry",
-          "Use interceptor to refresh on 401 responses",
-          "Redirect to login if refresh fails"
-        ],
-        "dependencies": [
-          "auth-001",
-          "auth-002"
-        ],
-        "acceptanceCriteria": [
-          "Auth context provides authentication state globally",
-          "Token automatically refreshes before expiry",
-          "Protected routes redirect unauthenticated users to login",
-          "User data persists across page refreshes",
-          "Logout clears all authentication state",
-          "Failed refresh redirects to login",
-          "401 responses trigger token refresh attempt"
+          "Channel list in left sidebar updates in real time when new messages arrive (bold name, unread count badge)",
+          "@ mentions notify the mentioned user even if not in the channel view",
+          "Pinned messages panel accessible from channel header",
+          "Only channel admins can rename, archive, or delete",
+          "Notification preferences (all messages / mentions only / mute) persist per user per channel",
+          "Archived channels hidden from sidebar but searchable",
+          "Channel member list shows presence dots"
         ]
       }
     },
-    "routes": {
-      "route-001": {
-        "id": "route-001",
-        "title": "Departments Page Implementation",
-        "priority": "high",
-        "status": "done",
-        "implementation": "Create departments page at src/app/(app)/departments/page.tsx with department listing, filtering, and management features",
-        "description": "Implement departments page to display and manage organizational departments",
-        "shadcnComponents": [
-          "Table",
-          "Button",
-          "Input",
-          "Card",
-          "DropdownMenu",
-          "Dialog",
-          "Badge"
-        ],
-        "features": [
-          {
-            "name": "Departments List",
-            "description": "Display all departments in a table/grid view"
-          },
-          {
-            "name": "Search and Filter",
-            "description": "Search departments by name, filter by status"
-          },
-          {
-            "name": "Department Details",
-            "description": "View department information including members and projects"
-          },
-          {
-            "name": "Add Department",
-            "description": "Create new department with name, description, manager"
-          },
-          {
-            "name": "Edit Department",
-            "description": "Update department information"
-          },
-          {
-            "name": "Delete Department",
-            "description": "Remove department (with confirmation)"
-          },
-          {
-            "name": "Department Members",
-            "description": "View and manage team members assigned to department"
-          }
-        ],
-        "pageComponents": [
-          {
-            "name": "Department Card/Row",
-            "fields": [
-              "Department name",
-              "Description",
-              "Manager",
-              "Member count",
-              "Project count",
-              "Actions"
-            ]
-          },
-          {
-            "name": "Add/Edit Dialog",
-            "fields": [
-              "Name (required)",
-              "Description",
-              "Manager (select)",
-              "Status"
-            ]
-          }
-        ],
-        "dependencies": [
-          "navbar-002",
-          "layout-001"
-        ],
-        "acceptanceCriteria": [
-          "Page renders at /departments route",
-          "No 404 error when navigating to departments",
-          "Departments list displays correctly",
-          "Search and filter functionality works",
-          "Can create new department",
-          "Can edit existing department",
-          "Can delete department with confirmation",
-          "Responsive design on all devices",
-          "Integrates with merged navbar"
-        ]
-      },
-      "route-002": {
-        "id": "route-002",
-        "title": "Resources Page Implementation",
-        "priority": "high",
-        "status": "done",
-        "implementation": "Create resources page at src/app/(app)/resources/page.tsx with resource library, file management, and categorization features",
-        "description": "Implement resources page to manage and access organizational resources, documents, and files",
-        "shadcnComponents": [
-          "Table",
-          "Button",
-          "Input",
-          "Card",
-          "DropdownMenu",
-          "Dialog",
-          "Badge",
-          "Tabs"
-        ],
-        "features": [
-          {
-            "name": "Resources List",
-            "description": "Display all resources with preview, name, type, size, upload date"
-          },
-          {
-            "name": "Search and Filter",
-            "description": "Search resources by name, filter by type, category, tags"
-          },
-          {
-            "name": "Upload Resource",
-            "description": "Upload new files/documents with metadata"
-          },
-          {
-            "name": "Resource Categories",
-            "description": "Organize resources into categories (Documents, Images, Videos, Templates, etc.)"
-          },
-          {
-            "name": "Download Resource",
-            "description": "Download individual resources"
-          },
-          {
-            "name": "Edit Metadata",
-            "description": "Update resource name, description, tags, category"
-          },
-          {
-            "name": "Delete Resource",
-            "description": "Remove resource (with confirmation)"
-          },
-          {
-            "name": "Resource Preview",
-            "description": "Preview supported file types (images, PDFs)"
-          },
-          {
-            "name": "Sharing Permissions",
-            "description": "Manage who can access each resource"
-          }
-        ],
-        "resourceTypes": [
-          "Documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx)",
-          "Images (.jpg, .png, .gif, .svg)",
-          "Videos (.mp4, .mov, .avi)",
-          "Archives (.zip, .rar)",
-          "Other files"
-        ],
-        "pageComponents": [
-          {
-            "name": "Resource Card/Row",
-            "fields": [
-              "Preview/Icon",
-              "Name",
-              "Type",
-              "Size",
-              "Uploaded by",
-              "Upload date",
-              "Actions"
-            ]
-          },
-          {
-            "name": "Upload Dialog",
-            "fields": [
-              "File picker",
-              "Name",
-              "Description",
-              "Category",
-              "Tags",
-              "Permissions"
-            ]
-          },
-          {
-            "name": "Category Tabs",
-            "tabs": [
-              "All",
-              "Documents",
-              "Images",
-              "Videos",
-              "Templates",
-              "Other"
-            ]
-          }
-        ],
-        "dependencies": [
-          "navbar-002",
-          "layout-001"
-        ],
-        "acceptanceCriteria": [
-          "Page renders at /resources route",
-          "No 404 error when navigating to resources",
-          "Resources list displays correctly",
-          "Search and filter functionality works",
-          "Can upload new resources",
-          "Can download resources",
-          "Can edit resource metadata",
-          "Can delete resources with confirmation",
-          "File preview works for supported types",
-          "Categories organize resources properly",
-          "Responsive design on all devices",
-          "Integrates with merged navbar"
-        ]
-      }
-    },
-    "fixes": {
-      "fix-001": {
-        "id": "fix-001",
-        "title": "Fix React Infinite Loop and API Response Issues",
+    "video": {
+      "video-001": {
+        "id": "video-001",
+        "title": "LiveKit Infrastructure & Token Service",
         "priority": "critical",
-        "status": "done",
-        "implementation": "Fix infinite re-render loops caused by non-memoized dependencies in useSetPageHeader hook across multiple pages, and fix API response structure in /api/teams route",
-        "description": "Resolve infinite React update loops and server errors by memoizing JSX elements, arrays, and callbacks passed to useSetPageHeader hook, and ensuring API routes return consistent object structures",
-        "shadcnComponents": [],
-        "rootCause": {
-          "hookDependencies": "useSetPageHeader hook has actions and breadcrumbs as useEffect dependencies, but pages pass non-memoized JSX elements and arrays that are recreated on every render",
-          "renderLoop": "Component renders → creates new JSX/array → useEffect detects change → calls setter → context updates → triggers re-render → loop repeats",
-          "apiResponse": "/api/teams route returns user: null and organization: null when lookups fail, but frontend expects these to always be objects"
-        },
-        "affectedPages": [
-          "/projects",
-          "/teams",
-          "/departments",
-          "/processes"
+        "status": "pending",
+        "description": "Self-hosted LiveKit SFU provisioned via Docker Compose alongside the existing PostgreSQL container. Express back-end exposes a token-generation endpoint. This is the infrastructure task that all video/audio features depend on.",
+        "implementation": "Add livekit service to docker-compose.yml. Create back/src/services/livekit.service.ts wrapping livekit-server-sdk. Expose POST /api/livekit/token {roomName, participantIdentity, participantName, permissions}. Tokens are JWT-signed with LIVEKIT_API_KEY + LIVEKIT_API_SECRET env vars. Room names follow convention: dm:{roomId}, call:{callId}, live:{sessionId}.",
+        "backendWork": [
+          "docker-compose.yml — add livekit service (livekit/livekit-server), port 7880 (HTTPS) and 7881 (TCP/UDP media)",
+          "back/src/services/livekit.service.ts — createToken, createRoom, deleteRoom, listParticipants",
+          "back/src/routes/livekit.route.ts — POST /api/livekit/token, POST /api/livekit/rooms, DELETE /api/livekit/rooms/:name"
         ],
-        "errors": [
-          "Maximum update depth exceeded",
-          "TypeError: Cannot read properties of undefined (reading 'call')",
-          "404 errors for layout.css (stale Next.js cache)"
+        "envVars": [
+          "LIVEKIT_API_KEY",
+          "LIVEKIT_API_SECRET",
+          "LIVEKIT_WS_URL (wss://livekit.yourdomain.com)"
         ],
-        "filesToModify": [
-          {
-            "file": "src/app/(app)/projects/page.tsx",
-            "changes": "Wrap actionButton in useMemo and click handler in useCallback"
-          },
-          {
-            "file": "src/app/(app)/departments/page.tsx",
-            "changes": "Wrap actionButton in useMemo, handler in useCallback, and breadcrumbs in useMemo"
-          },
-          {
-            "file": "src/app/(app)/processes/page.tsx",
-            "changes": "Wrap actionButtons in useMemo and breadcrumbs in useMemo"
-          },
-          {
-            "file": "src/app/(app)/teams/page.tsx",
-            "changes": "Wrap breadcrumbs in useMemo"
-          },
-          {
-            "file": "src/app/api/teams/route.ts",
-            "changes": "Fix response to always return valid objects with fallback values, include department field"
-          },
-          {
-            "file": ".next/",
-            "changes": "Clear stale build artifacts causing 404 errors for layout.css"
-          }
-        ],
-        "solutionPattern": {
-          "imports": "import { useState, useEffect, useMemo, useCallback } from 'react'",
-          "memoizeHandler": "const handleClick = useCallback(() => { ... }, [dependency])",
-          "memoizeJSX": "const actionButton = useMemo(() => (<button onClick={handleClick}>...</button>), [handleClick])",
-          "memoizeBreadcrumbs": "const breadcrumbs = useMemo(() => [{ label: 'PageName' }], [])",
-          "apiResponsePattern": "user: isSuccess(userResult) && userResult.data ? { id: userResult.data.id, name: userResult.data.name, email: userResult.data.email } : { id: m.userId, name: null, email: '' }"
-        },
         "dependencies": [],
         "acceptanceCriteria": [
-          "npx tsc --noEmit passes without errors",
-          "pnpm build succeeds without warnings",
-          "/projects page loads without infinite loop errors",
-          "/teams page loads without 'Cannot read properties of undefined' errors",
-          "/departments page loads without infinite loop errors",
-          "/processes page loads without infinite loop errors",
-          "No 'Maximum update depth exceeded' errors in console",
-          "API /teams route returns valid objects for user and organization (never null)",
-          "No 404 errors for layout.css",
-          "Page headers and action buttons render correctly",
-          "All page navigation and interactions work as expected"
+          "docker-compose up starts LiveKit alongside PostgreSQL",
+          "POST /api/livekit/token returns valid JWT token within 200 ms",
+          "Token grants correct permissions (publish, subscribe, room join)",
+          "Tokens expire after 4 h",
+          "Unauthenticated requests to token endpoint return 401"
         ]
-      }
-    },
-    "responsive": {
-      "responsive-001": {
-        "id": "responsive-001",
-        "title": "Implement Responsive Design System",
-        "priority": "high",
-        "status": "done",
-        "implementation": "Implement responsive design across all pages and components using Tailwind CSS breakpoints and mobile-first approach to ensure optimal viewing experience on all devices (mobile, tablet, desktop)",
-        "description": "Make the entire AltiTeam application responsive with adaptive layouts for mobile (320px-768px), tablet (768px-1024px), and desktop (1024px+) screen sizes",
-        "shadcnComponents": [
-          "Sheet",
-          "Drawer",
-          "Accordion",
-          "DropdownMenu"
+      },
+      "video-002": {
+        "id": "video-002",
+        "title": "1-on-1 Video & Audio Call",
+        "priority": "critical",
+        "status": "pending",
+        "description": "Peer-to-peer-quality video and audio calls between two users, routed through LiveKit SFU. Initiated from DM chat header or contact cards. Includes camera on/off, mic mute, screen share, call timer, and end-call.",
+        "implementation": "Inbound call triggers a Socket.IO call-invite event. Recipient sees a floating call-notification overlay. On accept both sides fetch a LiveKit token for the same room and connect via @livekit/components-react <LiveKitRoom>. Render using VideoConference preset component, customised with our design tokens. Route: /call/[callId] (opens in a new browser tab or modal overlay, configurable).",
+        "frontendFiles": [
+          "src/components/call/call-overlay.tsx (floating invite notification)",
+          "src/components/call/call-room.tsx (LiveKit room wrapper)",
+          "src/components/call/call-controls.tsx (mute, camera, share, end)",
+          "src/components/call/call-timer.tsx",
+          "src/hooks/useCallSignalling.ts",
+          "src/app/(app)/call/[callId]/page.tsx"
         ],
-        "breakpoints": {
-          "mobile": "320px - 767px",
-          "tablet": "768px - 1023px",
-          "desktop": "1024px+"
-        },
-        "componentsToModify": [
-          {
-            "component": "Sidebar",
-            "file": "src/components/layout/sidebar.tsx",
-            "changes": [
-              "Convert to drawer/sheet on mobile devices",
-              "Add hamburger menu toggle button",
-              "Implement swipe gestures for opening/closing",
-              "Auto-collapse on mobile by default",
-              "Full-width overlay on mobile"
-            ]
-          },
-          {
-            "component": "Navbar",
-            "file": "src/components/layout/navbar.tsx",
-            "changes": [
-              "Stack navigation items vertically on mobile",
-              "Convert search bar to expandable icon on mobile",
-              "Move action buttons to dropdown menu on mobile",
-              "Reduce padding and font sizes on smaller screens",
-              "Implement sticky header behavior"
-            ]
-          },
-          {
-            "component": "Dashboard",
-            "file": "src/app/(app)/dashboard/page.tsx",
-            "changes": [
-              "Stack stat cards vertically on mobile (1 column)",
-              "2 columns on tablet, 4 columns on desktop",
-              "Make charts scrollable horizontally on mobile",
-              "Adjust card padding and spacing for mobile"
-            ]
-          },
-          {
-            "component": "Projects List",
-            "file": "src/app/(app)/projects/page.tsx",
-            "changes": [
-              "Convert table to card layout on mobile",
-              "Stack project cards vertically",
-              "Hide less important columns on tablet",
-              "Make filters collapsible on mobile"
-            ]
-          },
-          {
-            "component": "Tasks List",
-            "file": "src/app/(app)/tasks/page.tsx",
-            "changes": [
-              "Convert table to card layout on mobile",
-              "Stack task cards vertically",
-              "Priority badges and status visible on all sizes",
-              "Swipe actions for quick task management on mobile"
-            ]
-          },
-          {
-            "component": "Teams List",
-            "file": "src/app/(app)/teams/page.tsx",
-            "changes": [
-              "Convert table to card layout on mobile",
-              "Show avatar, name, role on mobile cards",
-              "Hide department column on mobile",
-              "Stack member details vertically"
-            ]
-          },
-          {
-            "component": "Chat Sidebar",
-            "file": "src/components/chat/chat-sidebar.tsx",
-            "changes": [
-              "Full-screen on mobile devices",
-              "Slide up from bottom on mobile (Sheet)",
-              "Reduce width to 90% on tablet",
-              "Maintain side panel on desktop"
-            ]
-          },
-          {
-            "component": "Dialogs/Modals",
-            "files": "All dialog components",
-            "changes": [
-              "Full-screen modals on mobile",
-              "Centered modals with max-width on desktop",
-              "Adjust padding and font sizes",
-              "Stack form fields vertically on mobile"
-            ]
-          }
+        "backendWork": [
+          "back/src/sockets/call.socket.ts — /signalling namespace; events: call-invite, call-accept, call-reject, call-end, call-busy"
         ],
-        "tailwindBreakpoints": {
-          "sm": "640px",
-          "md": "768px",
-          "lg": "1024px",
-          "xl": "1280px",
-          "2xl": "1536px"
-        },
-        "implementationPattern": {
-          "mobileFirst": "Start with mobile styles, add larger breakpoints with md:, lg:, xl: prefixes",
-          "example": "<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>",
-          "hideOnMobile": "className='hidden md:block'",
-          "showOnMobile": "className='block md:hidden'",
-          "responsiveText": "className='text-sm md:text-base lg:text-lg'",
-          "responsivePadding": "className='p-4 md:p-6 lg:p-8'"
-        },
-        "testingDevices": [
-          "iPhone SE (375px)",
-          "iPhone 12/13/14 (390px)",
-          "Samsung Galaxy S20 (360px)",
-          "iPad (768px)",
-          "iPad Pro (1024px)",
-          "Desktop (1920px)"
+        "shadcnComponents": ["Dialog", "Button", "Badge", "Avatar", "Tooltip"],
+        "features": [
+          "Camera toggle (on/off)",
+          "Microphone mute/unmute",
+          "Screen share (video-003 dependency)",
+          "Call duration timer",
+          "Network quality indicator",
+          "Noise suppression (LiveKit built-in)",
+          "Background blur (optional, LiveKit processor)",
+          "Missed call notification stored in notifications table"
         ],
-        "dependencies": [
-          "navbar-002",
-          "layout-001"
-        ],
+        "dependencies": ["video-001", "chat-002", "presence-001"],
         "acceptanceCriteria": [
-          "All pages render correctly on mobile devices (320px-767px)",
-          "Sidebar converts to mobile drawer with hamburger menu",
-          "Navbar is responsive with stacked/collapsed elements on mobile",
-          "Tables convert to card layouts on mobile",
-          "All forms are usable on mobile devices",
-          "Touch targets are minimum 44x44px on mobile",
-          "No horizontal scrolling on any device size",
-          "Images and charts scale appropriately",
-          "Text remains readable on all screen sizes",
-          "Action buttons remain accessible on mobile",
-          "Chat sidebar is full-screen on mobile",
-          "Dialogs are full-screen or properly sized on mobile",
-          "Navigation works smoothly on touch devices",
-          "All interactive elements are touch-friendly",
-          "Tested on real devices or browser dev tools"
+          "Call invite notification appears on recipient's screen within 1 s",
+          "Recipient can accept or reject; caller sees state change within 1 s",
+          "Video and audio streams connect within 3 s of both parties joining on local network",
+          "Camera and mic controls work without page reload",
+          "Ending the call disconnects both parties and records call duration in DB",
+          "Missed calls show in notification bell with timestamp"
+        ]
+      },
+      "video-003": {
+        "id": "video-003",
+        "title": "Screen Sharing",
+        "priority": "high",
+        "status": "pending",
+        "description": "Any participant in a 1-on-1 call, group call, or live session can share their entire screen, a specific window, or a browser tab. Multiple participants may share simultaneously (viewer can switch between screenshares).",
+        "implementation": "Use LiveKit's built-in screen share track (participant.screenShareTrack). Add Share Screen button to call-controls.tsx. Share source picker is the browser native getDisplayMedia() dialog. Screenshare tile appears in a dedicated panel above the speaker tile. Annotation layer is out of scope for v3.",
+        "frontendFiles": [
+          "src/components/call/screen-share-tile.tsx",
+          "src/components/call/screen-share-picker.tsx"
+        ],
+        "dependencies": ["video-002"],
+        "acceptanceCriteria": [
+          "Share Screen button visible in call controls",
+          "Browser picker shown to select source",
+          "Screenshare tile displayed prominently for all participants",
+          "Participant can stop sharing at any time",
+          "Multiple simultaneous shares supported; viewers switch via tab strip"
+        ]
+      },
+      "video-004": {
+        "id": "video-004",
+        "title": "Group Video & Audio Call",
+        "priority": "critical",
+        "status": "pending",
+        "description": "Video/audio calls for 3–50 participants within a channel or team. Grid layout auto-adjusts from 2×2 to 5×5. Active speaker detection highlights the dominant speaker. All features of 1-on-1 calls plus hand-raise and reactions.",
+        "implementation": "Extend call-room.tsx to support multi-participant grid. Use LiveKit's useParticipants() hook. Implement active-speaker detection via useSpeakingParticipants(). Layout switches: grid (≤9 participants), speaker-focus (>9, dominant speaker large, others strip). Group calls initiated from channel header 'Start Call' button. All channel members receive invite via Socket.IO.",
+        "frontendFiles": [
+          "src/components/call/participant-grid.tsx",
+          "src/components/call/participant-tile.tsx",
+          "src/components/call/speaker-layout.tsx",
+          "src/components/call/hand-raise-button.tsx",
+          "src/components/call/call-reactions.tsx"
+        ],
+        "features": [
+          "Grid auto-layout (2×2 → 5×5)",
+          "Active speaker highlight border",
+          "Hand raise (shows animated hand icon on tile)",
+          "Quick emoji reactions (thumbs-up, heart, laugh, clap — float and fade)",
+          "Participant list panel (names, mute state)",
+          "Admit/remove participant (host only)"
+        ],
+        "dependencies": ["video-002", "video-003"],
+        "acceptanceCriteria": [
+          "Up to 50 participants can join the same LiveKit room",
+          "Grid layout renders correctly for 2, 4, 9, and 25 participants",
+          "Active speaker switch latency < 500 ms",
+          "Hand raise icon visible to all participants within 1 s",
+          "Emoji reactions float and fade after 3 s",
+          "Host can remove a participant; removed participant sees call-ended screen",
+          "All controls (mute, camera, share, hand, react, end) visible on mobile"
+        ]
+      },
+      "video-005": {
+        "id": "video-005",
+        "title": "One-to-Many Live Video Session (Webinar / Broadcast)",
+        "priority": "high",
+        "status": "pending",
+        "description": "A host (or co-hosts) broadcasts video/audio to up to 500 viewers. Viewers are receive-only by default but can be promoted to speaker. Includes live Q&A, polls, viewer count, and hand-raise queue for the host.",
+        "implementation": "LiveKit room with host publishing tracks and viewers joining with subscribe-only permissions. Token endpoint differentiates role via canPublish flag. Route: /live/[sessionId]. Session entity in live_sessions table. Sidebar shows Q&A queue and polls panel. Broadcast can be promoted to 'session recording' (video-008).",
+        "frontendFiles": [
+          "src/app/(app)/live/[sessionId]/page.tsx",
+          "src/app/(app)/live/[sessionId]/host/page.tsx",
+          "src/components/live/host-controls.tsx",
+          "src/components/live/viewer-layout.tsx",
+          "src/components/live/qa-panel.tsx",
+          "src/components/live/poll-panel.tsx",
+          "src/components/live/viewer-count-badge.tsx",
+          "src/components/live/hand-raise-queue.tsx"
+        ],
+        "backendWork": [
+          "back/src/routes/live-session.route.ts — CRUD for live sessions, POST /api/live-sessions/:id/promote-speaker, POST /api/live-sessions/:id/polls",
+          "back/src/sockets/live.socket.ts — /live namespace; events: qa-submit, qa-answer, poll-create, poll-vote, promote-viewer, lower-hand"
+        ],
+        "shadcnComponents": ["Sheet", "Tabs", "Badge", "Button", "Progress", "ScrollArea", "Dialog"],
+        "dataModel": {
+          "live_sessions": {
+            "id": "uuid",
+            "title": "text",
+            "scheduledAt": "timestamp",
+            "startedAt": "timestamp | null",
+            "endedAt": "timestamp | null",
+            "hostId": "uuid",
+            "coHostIds": "uuid[]",
+            "livekitRoom": "text",
+            "viewerCount": "int",
+            "recordingEnabled": "boolean"
+          }
+        },
+        "dependencies": ["video-001", "video-004"],
+        "acceptanceCriteria": [
+          "Host can start a session and share the viewer link",
+          "Up to 500 viewers can join with audio/video muted and receive-only tokens",
+          "Viewer count updates in real time",
+          "Host can promote a viewer to speaker (viewer's mic/camera unlock)",
+          "Q&A: viewers submit questions; host sees queue; answering a question marks it resolved",
+          "Polls: host creates poll with up to 6 options; results shown in real time as percentages",
+          "Hand raise queue shows viewers in FIFO order"
+        ]
+      },
+      "video-006": {
+        "id": "video-006",
+        "title": "Call & Session Recording",
+        "priority": "high",
+        "status": "pending",
+        "description": "Hosts can record group calls, meeting calls, and live sessions. Recording is composed server-side by LiveKit's Egress service, uploaded to S3, and made available for playback in the app. Participants see a recording indicator badge.",
+        "implementation": "Enable LiveKit Egress in docker-compose.yml (livekit/egress image). When host clicks 'Record', back-end calls egress.startRoomCompositeEgress() with S3 output config. On completion webhook, store S3 URL in recordings table and link to the meeting or session. Front-end uses wavesurfer.js for waveform playback preview.",
+        "backendWork": [
+          "back/src/services/recording.service.ts — startRecording, stopRecording, handleEgressWebhook",
+          "back/src/routes/recording.route.ts — GET /api/recordings, GET /api/recordings/:id (presigned URL), DELETE /api/recordings/:id",
+          "docker-compose.yml — add livekit-egress service"
+        ],
+        "frontendFiles": [
+          "src/components/call/record-button.tsx",
+          "src/components/recording/recording-indicator.tsx",
+          "src/app/(app)/recordings/page.tsx",
+          "src/components/recording/recording-player.tsx"
+        ],
+        "dataModel": {
+          "recordings": {
+            "id": "uuid",
+            "roomName": "text",
+            "meetingId": "uuid | null",
+            "liveSessionId": "uuid | null",
+            "s3Key": "text",
+            "durationSeconds": "int",
+            "sizeBytes": "bigint",
+            "status": "processing | ready | failed",
+            "createdAt": "timestamp"
+          }
+        },
+        "dependencies": ["video-004", "video-005"],
+        "acceptanceCriteria": [
+          "Record button visible to host only in call controls",
+          "REC badge appears for all participants when recording starts",
+          "Recording stops when host clicks Stop or when call ends",
+          "Recording available in /recordings page within 2 min of call end",
+          "Playback works in-browser with seek, play/pause, volume",
+          "Recordings can be downloaded or deleted (host/admin only)",
+          "Recording consent prompt shown to participants before host can record"
         ]
       }
     },
-    "dark mode": {
-      "id": "theme-001",
-      "title": "Implement Dark Mode Theme System",
-      "priority": "medium",
-      "status": "done",
-      "implementation": "Implement dark mode theme system using next-themes library and Tailwind CSS dark mode with theme toggle in navbar and persistent theme preference",
-      "description": "Add dark mode support across the entire application with system preference detection, manual toggle, and persistent theme storage",
-      "shadcnComponents": [
-        "DropdownMenu",
-        "Button",
-        "Switch"
-      ],
-      "packages": [
-        {
-          "name": "next-themes",
-          "version": "^0.2.1",
-          "install": "pnpm add next-themes"
-        }
-      ],
-      "filesToCreate": [
-        {
-          "file": "src/components/theme-provider.tsx",
-          "description": "ThemeProvider wrapper component using next-themes"
-        },
-        {
-          "file": "src/components/theme-toggle.tsx",
-          "description": "Theme toggle button component with sun/moon icons"
-        }
-      ],
-      "filesToModify": [
-        {
-          "file": "src/app/layout.tsx",
-          "changes": "Wrap app with ThemeProvider, add suppressHydrationWarning to html tag"
-        },
-        {
-          "file": "src/components/layout/navbar.tsx",
-          "changes": "Add theme toggle button to navbar right section"
-        },
-        {
-          "file": "tailwind.config.ts",
-          "changes": "Configure dark mode with 'class' strategy, define dark mode color variables"
-        },
-        {
-          "file": "src/app/globals.css",
-          "changes": "Add dark mode CSS variables for all color tokens"
-        }
-      ],
-      "themeConfiguration": {
-        "modes": [
-          "light",
-          "dark",
-          "system"
+    "ai": {
+      "ai-001": {
+        "id": "ai-001",
+        "title": "AI Provider Abstraction & Transcription Service",
+        "priority": "critical",
+        "status": "pending",
+        "description": "Single AI provider service in the back-end that wraps OpenAI (primary) and Anthropic (fallback) SDKs, and exposes a transcription endpoint that accepts audio file references and returns text via OpenAI Whisper.",
+        "implementation": "Create back/src/services/ai-provider.ts with methods: transcribe(s3Key): Promise<string>, summarise(transcript: string, context: MeetingContext): Promise<Summary>, generateMinutes(transcript: string, attendees: User[], agendaItems: AgendaItem[]): Promise<MeetingMinutes>. The transcription job is queued via a Redis queue (BullMQ) to avoid blocking the HTTP request.",
+        "backendWork": [
+          "back/src/services/ai-provider.ts",
+          "back/src/services/transcription.queue.ts (BullMQ)",
+          "back/src/routes/ai.route.ts — POST /api/ai/transcribe {recordingId}, GET /api/ai/transcribe/:jobId/status",
+          "back/src/workers/transcription.worker.ts"
         ],
-        "defaultMode": "system",
-        "storage": "localStorage",
-        "storageKey": "altiteam-theme",
-        "attribute": "class"
-      },
-      "colorTokens": {
-        "light": {
-          "background": "0 0% 100%",
-          "foreground": "222.2 84% 4.9%",
-          "card": "0 0% 100%",
-          "card-foreground": "222.2 84% 4.9%",
-          "primary": "222.2 47.4% 11.2%",
-          "primary-foreground": "210 40% 98%",
-          "secondary": "210 40% 96.1%",
-          "secondary-foreground": "222.2 47.4% 11.2%",
-          "muted": "210 40% 96.1%",
-          "muted-foreground": "215.4 16.3% 46.9%",
-          "accent": "210 40% 96.1%",
-          "accent-foreground": "222.2 47.4% 11.2%",
-          "border": "214.3 31.8% 91.4%",
-          "input": "214.3 31.8% 91.4%",
-          "ring": "222.2 84% 4.9%"
-        },
-        "dark": {
-          "background": "222.2 84% 4.9%",
-          "foreground": "210 40% 98%",
-          "card": "222.2 84% 4.9%",
-          "card-foreground": "210 40% 98%",
-          "primary": "210 40% 98%",
-          "primary-foreground": "222.2 47.4% 11.2%",
-          "secondary": "217.2 32.6% 17.5%",
-          "secondary-foreground": "210 40% 98%",
-          "muted": "217.2 32.6% 17.5%",
-          "muted-foreground": "215 20.2% 65.1%",
-          "accent": "217.2 32.6% 17.5%",
-          "accent-foreground": "210 40% 98%",
-          "border": "217.2 32.6% 17.5%",
-          "input": "217.2 32.6% 17.5%",
-          "ring": "212.7 26.8% 83.9%"
-        }
-      },
-      "implementationSteps": [
-        {
-          "step": 1,
-          "action": "Install next-themes package"
-        },
-        {
-          "step": 2,
-          "action": "Configure Tailwind CSS for dark mode in tailwind.config.ts"
-        },
-        {
-          "step": 3,
-          "action": "Add dark mode CSS variables to globals.css"
-        },
-        {
-          "step": 4,
-          "action": "Create ThemeProvider component"
-        },
-        {
-          "step": 5,
-          "action": "Wrap application with ThemeProvider in layout.tsx"
-        },
-        {
-          "step": 6,
-          "action": "Create ThemeToggle component with dropdown menu"
-        },
-        {
-          "step": 7,
-          "action": "Add ThemeToggle to navbar"
-        },
-        {
-          "step": 8,
-          "action": "Update all components to use CSS variables instead of hardcoded colors"
-        },
-        {
-          "step": 9,
-          "action": "Test all pages in light, dark, and system modes"
-        }
-      ],
-      "themeToggleComponent": {
-        "location": "Navbar right section, before user profile dropdown",
-        "options": [
-          "Light",
-          "Dark",
-          "System"
+        "envVars": [
+          "OPENAI_API_KEY",
+          "ANTHROPIC_API_KEY (fallback)",
+          "AI_PROVIDER=openai|anthropic",
+          "REDIS_URL"
         ],
-        "icons": {
-          "light": "Sun icon from lucide-react",
-          "dark": "Moon icon from lucide-react",
-          "system": "Monitor icon from lucide-react"
-        }
+        "dependencies": ["video-006"],
+        "acceptanceCriteria": [
+          "Transcription job queued within 500 ms of recording becoming ready",
+          "Transcription status polled via GET endpoint and shown in UI as a progress badge",
+          "Transcription completes for a 60-min recording in < 5 min",
+          "Transcript stored in PostgreSQL transcripts table linked to recording",
+          "Provider can be switched via AI_PROVIDER env var without code change",
+          "Failed jobs retry up to 3 times with exponential backoff"
+        ]
       },
-      "componentsToUpdate": [
-        "All pages in src/app/(app)/",
-        "All components in src/components/",
-        "Sidebar, Navbar, Chat sidebar",
-        "Cards, Tables, Forms, Dialogs",
-        "Dashboard charts and stats",
-        "Authentication pages"
-      ],
-      "cssVariablePattern": {
-        "usage": "Use bg-background, text-foreground, border-border instead of hardcoded colors",
-        "example": "className='bg-background text-foreground border-border'",
-        "custom": "Define custom color variables in :root and .dark selectors"
+      "ai-002": {
+        "id": "ai-002",
+        "title": "Auto Meeting Summarisation",
+        "priority": "high",
+        "status": "pending",
+        "description": "After a meeting recording is transcribed, automatically generate a structured summary: key discussion points, decisions made, and open questions. Summary is attached to the meeting record and emailed to attendees.",
+        "implementation": "After ai-001 transcription completes, chain a summarisation job. Pass transcript + meeting metadata (title, attendees, agenda) to GPT-4o with a structured output prompt. Store result in meeting_summaries table as JSON {keyPoints: string[], decisions: string[], openQuestions: string[]}. Trigger email notification to attendees via existing email service.",
+        "backendWork": [
+          "back/src/workers/summarisation.worker.ts",
+          "back/src/services/ai-provider.ts — summarise() method",
+          "back/src/routes/meeting.route.ts — GET /api/meetings/:id/summary"
+        ],
+        "frontendFiles": [
+          "src/components/meeting/meeting-summary.tsx",
+          "src/app/(app)/meetings/[meetingId]/summary/page.tsx"
+        ],
+        "shadcnComponents": ["Card", "Badge", "Separator", "Accordion"],
+        "dataModel": {
+          "meeting_summaries": {
+            "id": "uuid",
+            "meetingId": "uuid",
+            "transcript": "text",
+            "keyPoints": "jsonb",
+            "decisions": "jsonb",
+            "openQuestions": "jsonb",
+            "generatedAt": "timestamp",
+            "model": "text"
+          }
+        },
+        "dependencies": ["ai-001", "calendar-003"],
+        "acceptanceCriteria": [
+          "Summary auto-generated within 2 min of transcription completing",
+          "Summary section visible on meeting detail page",
+          "Key points, decisions, and open questions rendered as distinct sections",
+          "Attendees receive email with summary within 5 min of meeting end",
+          "User can regenerate summary if result is unsatisfactory (host only)",
+          "Summary available even if meeting had no agenda (graceful degradation)"
+        ]
       },
-      "dependencies": [
-        "responsive-001"
-      ],
-      "acceptanceCriteria": [
-        "Theme toggle button visible in navbar",
-        "User can switch between light, dark, and system modes",
-        "Theme preference persists across sessions",
-        "System theme detection works correctly",
-        "All pages render correctly in dark mode",
-        "All text is readable in both themes",
-        "Proper contrast ratios maintained (WCAG AA)",
-        "Images and icons adapt to theme where appropriate",
-        "Charts and graphs are visible in both themes",
-        "No flash of wrong theme on page load",
-        "Smooth transition between themes",
-        "All shadcn/ui components support dark mode",
-        "Form inputs clearly visible in both themes",
-        "Hover and focus states work in both themes",
-        "Theme applies immediately without page refresh"
-      ]
+      "ai-003": {
+        "id": "ai-003",
+        "title": "Automated Meeting Minutes with Task Assignment",
+        "priority": "high",
+        "status": "pending",
+        "description": "From the meeting transcript and attendee list, generate formal meeting minutes (date, attendees, agenda items, discussion per item, action items) and auto-create tasks in AltiTeam linked to the meeting, pre-assigned to the mentioned team member.",
+        "implementation": "Extend ai-provider.ts generateMinutes() method with a JSON-mode prompt that returns {attendees, agendaDiscussions: [{agendaItem, discussion, outcome}], actionItems: [{description, assigneeName, dueDate}]}. Back-end fuzzy-matches assigneeName against org members. Creates task entities via existing tasks repository. User is shown a confirmation/edit dialog before tasks are committed.",
+        "backendWork": [
+          "back/src/workers/minutes.worker.ts",
+          "back/src/services/ai-provider.ts — generateMinutes() method",
+          "back/src/routes/meeting.route.ts — GET /api/meetings/:id/minutes, POST /api/meetings/:id/minutes/confirm-tasks"
+        ],
+        "frontendFiles": [
+          "src/components/meeting/meeting-minutes.tsx",
+          "src/components/meeting/task-assignment-review-dialog.tsx",
+          "src/app/(app)/meetings/[meetingId]/minutes/page.tsx"
+        ],
+        "shadcnComponents": ["Dialog", "Table", "Badge", "Button", "Input", "Select", "DatePicker"],
+        "taskCreationFlow": [
+          "Minutes generated with action items",
+          "Host/organiser sees review dialog listing proposed tasks",
+          "Can edit description, assignee, and due date before confirming",
+          "Confirmed tasks created in tasks repository and appear in assignee's My Tasks",
+          "Created tasks linked back to meeting via meeting_tasks join table"
+        ],
+        "dependencies": ["ai-002"],
+        "acceptanceCriteria": [
+          "Meeting minutes page shows structured document with all sections",
+          "Action items extracted from transcript with ≥ 80 % accuracy on test corpus",
+          "Assignee fuzzy-match correctly maps names to org members ≥ 90 % of the time",
+          "Confirmation dialog lists proposed tasks with edit controls before creating",
+          "Confirmed tasks appear in tasks repository and assignee My Tasks page",
+          "Minutes can be exported as PDF (uses existing PDF-export utility)",
+          "Tasks link back to meeting on the task detail page"
+        ]
+      }
     },
-    "i18n": {
-      "id": "i18n-001",
-      "title": "Implement Internationalization (i18n) for Spanish",
-      "priority": "medium",
-      "status": "done",
-      "implementation": "Implement internationalization using next-intl library to support English and Spanish languages with language switcher in navbar and persistent language preference",
-      "description": "Add full Spanish language support across the application with automatic locale detection, manual language switcher, and persistent language preference storage",
-      "shadcnComponents": [
-        "DropdownMenu",
-        "Button"
-      ],
-      "packages": [
-        {
-          "name": "next-intl",
-          "version": "^3.0.0",
-          "install": "pnpm add next-intl"
-        }
-      ],
-      "supportedLanguages": [
-        {
-          "code": "en",
-          "name": "English",
-          "nativeName": "English",
-          "flag": "🇬🇧"
+    "calendar": {
+      "calendar-001": {
+        "id": "calendar-001",
+        "title": "In-App Calendar",
+        "priority": "critical",
+        "status": "pending",
+        "description": "Full-featured in-app calendar rendered with FullCalendar (React). Views: month, week, day, and agenda list. Events include meetings, tasks with due dates, and live sessions. User can create, edit, and delete events directly from the calendar.",
+        "implementation": "Install @fullcalendar/react + plugins. Route: /calendar. The calendar queries GET /api/calendar/events?start=&end= which aggregates meetings, tasks, and live sessions into a unified CalendarEvent DTO. Events colour-coded by type. Clicking an event opens a detail sheet. Creating an event opens a new-meeting dialog (calendar-002 flow).",
+        "backendWork": [
+          "back/src/routes/calendar.route.ts — GET /api/calendar/events (aggregates meetings + tasks + live sessions), POST /api/calendar/events"
+        ],
+        "frontendFiles": [
+          "src/app/(app)/calendar/page.tsx",
+          "src/components/calendar/calendar-view.tsx",
+          "src/components/calendar/event-detail-sheet.tsx",
+          "src/components/calendar/mini-calendar.tsx (sidebar widget)"
+        ],
+        "shadcnComponents": ["Sheet", "Button", "Badge", "Tabs", "Select"],
+        "eventColors": {
+          "meeting": "blue",
+          "task-due": "orange",
+          "live-session": "purple",
+          "external-google": "green",
+          "external-outlook": "cyan"
         },
-        {
-          "code": "es",
-          "name": "Spanish",
-          "nativeName": "Español",
-          "flag": "🇪🇸"
-        }
-      ],
-      "filesToCreate": [
-        {
-          "file": "src/i18n/request.ts",
-          "description": "Server-side i18n configuration"
-        },
-        {
-          "file": "src/i18n/routing.ts",
-          "description": "Routing configuration for locales"
-        },
-        {
-          "file": "src/middleware.ts",
-          "description": "Next.js middleware for locale detection and routing"
-        },
-        {
-          "file": "messages/en.json",
-          "description": "English translation strings"
-        },
-        {
-          "file": "messages/es.json",
-          "description": "Spanish translation strings"
-        },
-        {
-          "file": "src/components/language-switcher.tsx",
-          "description": "Language switcher dropdown component"
-        }
-      ],
-      "filesToModify": [
-        {
-          "file": "src/app/layout.tsx",
-          "changes": "Move to [locale] folder structure, wrap with NextIntlClientProvider"
-        },
-        {
-          "file": "src/components/layout/navbar.tsx",
-          "changes": "Add language switcher dropdown to navbar"
-        },
-        {
-          "file": "next.config.js",
-          "changes": "Configure i18n settings and locale routing"
-        },
-        {
-          "file": "All page components",
-          "changes": "Replace hardcoded strings with useTranslations hook"
-        }
-      ],
-      "folderStructure": {
-        "before": "src/app/(app)/dashboard/page.tsx",
-        "after": "src/app/[locale]/(app)/dashboard/page.tsx",
-        "messages": "messages/{locale}.json at project root"
+        "dependencies": ["presence-001"],
+        "acceptanceCriteria": [
+          "Calendar renders at /calendar with month/week/day/agenda views",
+          "Events from meetings, tasks, and live sessions all appear",
+          "Clicking an event shows detail sheet with join/view links",
+          "Creating an event from calendar opens pre-filled meeting dialog",
+          "Navigating months/weeks fetches events for the visible range only",
+          "Mini-calendar widget in sidebar shows dot for days with events",
+          "Calendar is responsive (week view on desktop, day view on mobile)"
+        ]
       },
-      "translationNamespaces": [
-        {
-          "namespace": "common",
-          "keys": [
-            "appName",
-            "welcome",
-            "loading",
-            "error",
-            "success",
-            "cancel",
-            "save",
-            "delete",
-            "edit",
-            "create",
-            "search",
-            "filter"
-          ]
-        },
-        {
-          "namespace": "navigation",
-          "keys": [
-            "dashboard",
-            "projects",
-            "tasks",
-            "teams",
-            "departments",
-            "processes",
-            "resources",
-            "settings"
-          ]
-        },
-        {
-          "namespace": "auth",
-          "keys": [
-            "signIn",
-            "signUp",
-            "signOut",
-            "email",
-            "password",
-            "forgotPassword",
-            "resetPassword",
-            "rememberMe",
-            "createAccount",
-            "alreadyHaveAccount"
-          ]
-        },
-        {
-          "namespace": "dashboard",
-          "keys": [
-            "totalProjects",
-            "totalTasks",
-            "teamMembers",
-            "pendingInvitations",
-            "projectsByStatus",
-            "tasksByStatus",
-            "recentProjects",
-            "recentTasks"
-          ]
-        },
-        {
-          "namespace": "projects",
-          "keys": [
-            "newProject",
-            "allProjects",
-            "myProjects",
-            "archived",
-            "projectName",
-            "description",
-            "status",
-            "members",
-            "tasks",
-            "resources",
-            "planning",
-            "inProgress",
-            "completed"
-          ]
-        },
-        {
-          "namespace": "tasks",
-          "keys": [
-            "newTask",
-            "allTasks",
-            "myTasks",
-            "overdue",
-            "taskName",
-            "priority",
-            "dueDate",
-            "assignedTo",
-            "low",
-            "medium",
-            "high",
-            "urgent",
-            "todo",
-            "done"
-          ]
-        },
-        {
-          "namespace": "teams",
-          "keys": [
-            "member",
-            "organization",
-            "department",
-            "role",
-            "position",
-            "admin",
-            "viewer",
-            "actions",
-            "editMember",
-            "removeMember"
-          ]
-        },
-        {
-          "namespace": "departments",
-          "keys": [
-            "newDepartment",
-            "departmentName",
-            "manager",
-            "memberCount",
-            "projectCount"
-          ]
-        },
-        {
-          "namespace": "resources",
-          "keys": [
-            "uploadResource",
-            "fileName",
-            "fileType",
-            "fileSize",
-            "uploadedBy",
-            "uploadDate",
-            "download",
-            "preview",
-            "documents",
-            "images",
-            "videos",
-            "templates"
-          ]
-        }
-      ],
-      "translationExample": {
-        "en": {
-          "common": {
-            "appName": "AltiTeam",
-            "welcome": "Welcome",
-            "loading": "Loading...",
-            "save": "Save",
-            "cancel": "Cancel"
+      "calendar-002": {
+        "id": "calendar-002",
+        "title": "Meeting Scheduling with Agenda",
+        "priority": "critical",
+        "status": "pending",
+        "description": "Full meeting scheduling flow: set title, date/time, duration, recurrence, location/link, invite attendees, and build a structured agenda before the meeting. Invitees receive email invitations and in-app notifications.",
+        "implementation": "New meeting dialog at src/components/meeting/new-meeting-dialog.tsx. Multi-step form: (1) Basic Info, (2) Attendees, (3) Agenda Builder, (4) Review & Send. Meeting stored in meetings table. Agenda items in agenda_items table (id, meetingId, order, title, duration, presenter, notes). Meeting generates a unique /meetings/[id] URL sent in invites. LiveKit room pre-created on schedule.",
+        "backendWork": [
+          "back/src/routes/meeting.route.ts — CRUD meetings, POST /api/meetings/:id/send-invites",
+          "back/src/services/meeting.service.ts — create, update, delete, send invites via email service"
+        ],
+        "frontendFiles": [
+          "src/components/meeting/new-meeting-dialog.tsx",
+          "src/components/meeting/agenda-builder.tsx",
+          "src/components/meeting/attendee-picker.tsx",
+          "src/components/meeting/recurrence-picker.tsx",
+          "src/app/(app)/meetings/page.tsx",
+          "src/app/(app)/meetings/[meetingId]/page.tsx"
+        ],
+        "shadcnComponents": ["Dialog", "Form", "Input", "DatePicker", "TimePicker", "Select", "Badge", "Button", "DragHandle", "ScrollArea"],
+        "dataModel": {
+          "meetings": {
+            "id": "uuid",
+            "title": "text",
+            "description": "text",
+            "organizerId": "uuid",
+            "startAt": "timestamp",
+            "endAt": "timestamp",
+            "recurrenceRule": "text | null (RRULE string)",
+            "livekitRoom": "text",
+            "status": "scheduled | in-progress | completed | cancelled",
+            "externalGoogleEventId": "text | null",
+            "externalOutlookEventId": "text | null"
           },
-          "navigation": {
-            "dashboard": "Dashboard",
-            "projects": "Projects",
-            "tasks": "Tasks"
+          "agenda_items": {
+            "id": "uuid",
+            "meetingId": "uuid",
+            "order": "int",
+            "title": "text",
+            "durationMinutes": "int",
+            "presenterId": "uuid | null",
+            "notes": "text"
+          },
+          "meeting_attendees": {
+            "meetingId": "uuid",
+            "userId": "uuid",
+            "rsvp": "accepted | declined | tentative | pending",
+            "isOrganizer": "boolean",
+            "joinedAt": "timestamp | null"
           }
         },
-        "es": {
-          "common": {
-            "appName": "AltiTeam",
-            "welcome": "Bienvenido",
-            "loading": "Cargando...",
-            "save": "Guardar",
-            "cancel": "Cancelar"
-          },
-          "navigation": {
-            "dashboard": "Panel de Control",
-            "projects": "Proyectos",
-            "tasks": "Tareas"
-          }
-        }
-      },
-      "usagePattern": {
-        "import": "import { useTranslations } from 'next-intl'",
-        "hook": "const t = useTranslations('namespace')",
-        "usage": "t('key')",
-        "example": "const t = useTranslations('common'); <h1>{t('welcome')}</h1>"
-      },
-      "languageSwitcher": {
-        "location": "Navbar right section, between theme toggle and notification bell",
-        "displayFormat": "Flag icon + language code (🇬🇧 EN / 🇪🇸 ES)",
-        "dropdownOptions": [
-          "English (English)",
-          "Español (Spanish)"
+        "features": [
+          "Drag-to-reorder agenda items",
+          "Per-item timer visible during meeting (ai-002 integration)",
+          "Recurrence (daily, weekly, monthly, custom RRULE)",
+          "RSVP tracking (accepted/declined/tentative) with email response links",
+          "Add video call link automatically (LiveKit room URL)",
+          "Optional physical location field",
+          "Duplicate meeting for quick rescheduling"
         ],
-        "behavior": "Changes locale and refreshes page with new language"
+        "dependencies": ["calendar-001", "video-001"],
+        "acceptanceCriteria": [
+          "Meeting form validates required fields before step progression",
+          "Agenda items can be added, removed, and reordered via drag handle",
+          "Attendee search finds org members by name or email",
+          "Invite emails sent within 60 s of meeting creation",
+          "RSVP links in email correctly update meeting_attendees table",
+          "Recurring meetings create future instances queryable by calendar",
+          "Meeting detail page shows agenda, attendee list with RSVP status, and join button"
+        ]
       },
-      "routingStrategy": {
-        "type": "Prefix-based routing",
-        "examples": [
-          "/en/dashboard",
-          "/es/dashboard",
-          "/en/projects",
-          "/es/proyectos"
+      "calendar-003": {
+        "id": "calendar-003",
+        "title": "Google Calendar & Microsoft Outlook Sync",
+        "priority": "high",
+        "status": "pending",
+        "description": "Two-way sync between AltiTeam in-app calendar and external Google Calendar or Microsoft Outlook. User connects their account via OAuth. AltiTeam meetings are pushed to the external calendar. External events are pulled and shown (read-only) in the AltiTeam calendar.",
+        "implementation": "OAuth flow for Google (googleapis) and Microsoft (MSAL + Microsoft Graph API). Store OAuth tokens in calendar_integrations table (userId, provider, accessToken, refreshToken, expiresAt, calendarId). Push: when a meeting is created/updated/deleted in AltiTeam, call Google Calendar events.insert() or Graph calendarView PATCH. Pull: subscribe to push notifications (Google Calendar push channel, Microsoft Graph subscription webhook) to sync external events on change. Nightly cron job re-syncs as fallback.",
+        "backendWork": [
+          "back/src/routes/calendar-integration.route.ts — GET /api/integrations/google/auth, GET /api/integrations/google/callback, GET /api/integrations/outlook/auth, GET /api/integrations/outlook/callback, DELETE /api/integrations/:provider",
+          "back/src/services/google-calendar.service.ts",
+          "back/src/services/outlook-calendar.service.ts",
+          "back/src/services/calendar-sync.service.ts — bidirectional event mapping",
+          "back/src/routes/webhooks/google-calendar.route.ts",
+          "back/src/routes/webhooks/outlook-calendar.route.ts"
         ],
-        "defaultLocale": "en",
-        "localeDetection": "Browser language or stored preference"
+        "frontendFiles": [
+          "src/app/(app)/settings/integrations/page.tsx",
+          "src/components/settings/calendar-integration-card.tsx"
+        ],
+        "envVars": [
+          "GOOGLE_CLIENT_ID",
+          "GOOGLE_CLIENT_SECRET",
+          "GOOGLE_CALENDAR_REDIRECT_URI",
+          "MICROSOFT_CLIENT_ID",
+          "MICROSOFT_CLIENT_SECRET",
+          "MICROSOFT_REDIRECT_URI"
+        ],
+        "syncRules": [
+          "AltiTeam meetings push to external calendar with video join link in description",
+          "External events imported as read-only; shown in grey on in-app calendar",
+          "Deleting an AltiTeam meeting also deletes the external event",
+          "Rescheduling syncs new time to external calendar",
+          "External cancellations set external event as cancelled; in-app event unchanged"
+        ],
+        "dependencies": ["calendar-002"],
+        "acceptanceCriteria": [
+          "Settings → Integrations page shows Google Calendar and Outlook connection cards",
+          "OAuth flow completes without leaving AltiTeam (popup window strategy)",
+          "Connected status shown with last-sync timestamp",
+          "New AltiTeam meeting appears in external calendar within 30 s",
+          "Rescheduled meeting updates external calendar within 30 s",
+          "External events visible in AltiTeam calendar (read-only, distinct colour)",
+          "Disconnecting removes integration and stops sync (does not delete existing external events)",
+          "Token refresh handled automatically before expiry"
+        ]
+      }
+    },
+    "meeting-room": {
+      "meeting-room-001": {
+        "id": "meeting-room-001",
+        "title": "Live Meeting Room with Agenda Timer",
+        "priority": "high",
+        "status": "pending",
+        "description": "When a scheduled meeting starts, participants join a live meeting room page that combines the video call (video-004), the meeting agenda with a per-item countdown timer, and the collaborative meeting doc (meeting-room-002). The organiser controls agenda progression.",
+        "implementation": "Route: /meetings/[meetingId]/room. Full-page layout with three panels: left (video grid, 60 %), center-right (agenda + timer), right (collaborative doc, collapsible). Agenda timer counts down duration for the current item; organiser presses Next Item to advance. Timer reaching zero triggers a soft chime and auto-advances. Meeting status updates to in-progress when first participant joins.",
+        "frontendFiles": [
+          "src/app/(app)/meetings/[meetingId]/room/page.tsx",
+          "src/components/meeting/meeting-room-layout.tsx",
+          "src/components/meeting/agenda-timer.tsx",
+          "src/components/meeting/agenda-progress.tsx"
+        ],
+        "shadcnComponents": ["ResizablePanel", "Button", "Badge", "Progress", "Separator", "Tooltip"],
+        "dependencies": ["video-004", "calendar-002"],
+        "acceptanceCriteria": [
+          "Joining /meetings/[id]/room before start time shows a lobby countdown",
+          "Video grid and agenda panels visible simultaneously on ≥ 1280 px screens",
+          "Agenda timer counts down per-item duration in MM:SS",
+          "Organiser 'Next Item' button advances agenda; participants see update in real time via Socket.IO",
+          "Timer at 0:00 shows visual/audio alert and marks item as completed",
+          "Panel resize handles allow adjusting video vs. agenda widths",
+          "Meeting automatically marked completed when organiser ends the meeting"
+        ]
       },
-      "implementationSteps": [
-        {
-          "step": 1,
-          "action": "Install next-intl package"
-        },
-        {
-          "step": 2,
-          "action": "Create messages folder with en.json and es.json"
-        },
-        {
-          "step": 3,
-          "action": "Configure i18n routing in src/i18n/routing.ts"
-        },
-        {
-          "step": 4,
-          "action": "Create middleware.ts for locale detection"
-        },
-        {
-          "step": 5,
-          "action": "Restructure app directory to [locale] folder structure"
-        },
-        {
-          "step": 6,
-          "action": "Create translation keys for all UI text"
-        },
-        {
-          "step": 7,
-          "action": "Replace hardcoded strings with useTranslations hook"
-        },
-        {
-          "step": 8,
-          "action": "Create LanguageSwitcher component"
-        },
-        {
-          "step": 9,
-          "action": "Add LanguageSwitcher to navbar"
-        },
-        {
-          "step": 10,
-          "action": "Translate all content to Spanish"
-        },
-        {
-          "step": 11,
-          "action": "Test all pages in both languages"
-        }
-      ],
-      "specialConsiderations": [
-        {
-          "item": "Date formatting",
-          "description": "Use Intl.DateTimeFormat with locale parameter"
-        },
-        {
-          "item": "Number formatting",
-          "description": "Use Intl.NumberFormat for currency and numbers"
-        },
-        {
-          "item": "Pluralization",
-          "description": "Use next-intl's plural support for dynamic counts"
-        },
-        {
-          "item": "RTL support",
-          "description": "Not required for Spanish, but architecture should support future RTL languages"
-        },
-        {
-          "item": "Dynamic content",
-          "description": "API responses may need translation or locale-specific content"
-        }
-      ],
-      "dependencies": [
-        "navbar-002",
-        "responsive-001",
-        "theme-001"
-      ],
-      "acceptanceCriteria": [
-        "Language switcher visible in navbar",
-        "User can switch between English and Spanish",
-        "Language preference persists across sessions",
-        "All UI text is translated in both languages",
-        "Navigation menu items translated",
-        "Form labels and placeholders translated",
-        "Button text translated",
-        "Error messages translated",
-        "Success messages translated",
-        "Date formats respect locale (MM/DD/YYYY vs DD/MM/YYYY)",
-        "Number formats respect locale",
-        "URLs include locale prefix (/en/ or /es/)",
-        "Browser language detection works",
-        "Automatic redirect to preferred language",
-        "No untranslated strings visible",
-        "Translation quality is professional and accurate",
-        "Context-appropriate translations (formal/informal)",
-        "All authentication pages translated",
-        "All dashboard content translated",
-        "Email templates available in both languages"
-      ]
+      "meeting-room-002": {
+        "id": "meeting-room-002",
+        "title": "Collaborative Meeting Document",
+        "priority": "high",
+        "status": "pending",
+        "description": "A shared real-time text document attached to every meeting, editable by all participants simultaneously during the call. Pre-populated with the meeting agenda as a template. Notes persist after the meeting and are linked from the meeting detail page.",
+        "implementation": "Use a CRDT-based approach: Yjs + y-socket.io on the back-end for real-time collaborative editing. Document stored as Yjs binary state in meeting_documents table (meetingId, ydocState bytea, updatedAt). Front-end renders with TipTap editor (headless, Tailwind-styled) using the @tiptap/extension-collaboration extension. On meeting creation, document is bootstrapped with agenda items as H2 headings.",
+        "backendWork": [
+          "back/src/sockets/ydoc.socket.ts — y-socket.io server binding, room = doc:{meetingId}",
+          "back/src/routes/meeting-doc.route.ts — GET /api/meetings/:id/doc (initial Yjs state), POST /api/meetings/:id/doc/snapshot"
+        ],
+        "frontendFiles": [
+          "src/components/meeting/collaborative-doc.tsx",
+          "src/hooks/useCollaborativeDoc.ts"
+        ],
+        "packages": [
+          "yjs",
+          "y-socket.io",
+          "@tiptap/react",
+          "@tiptap/starter-kit",
+          "@tiptap/extension-collaboration",
+          "@tiptap/extension-collaboration-cursor"
+        ],
+        "features": [
+          "Real-time collaborative editing (multiple cursors with user colours)",
+          "Rich text: headings, bold, italic, bullet lists, checkboxes",
+          "Auto-saves every 10 s and on disconnect",
+          "Read-only for non-attendees post-meeting",
+          "Exportable as PDF"
+        ],
+        "dependencies": ["calendar-002"],
+        "acceptanceCriteria": [
+          "Document pre-populated with agenda headings on meeting creation",
+          "Two participants editing simultaneously see each other's cursors and changes within 200 ms",
+          "Document auto-saves; no data lost on page refresh",
+          "Post-meeting, document visible (read-only) on meeting detail page",
+          "Document export to PDF produces clean formatted output",
+          "Collaboration cursors labelled with participant name"
+        ]
+      }
+    },
+    "notifications": {
+      "notifications-001": {
+        "id": "notifications-001",
+        "title": "Push & Desktop Notifications",
+        "priority": "high",
+        "status": "pending",
+        "description": "Browser push notifications (Web Push API) and in-app notification centre for all synchronous events: incoming calls, meeting reminders (15 min, 5 min, at start), new DMs, @mentions, RSVP responses, and live session starts.",
+        "implementation": "Service Worker (public/sw.js) registers Web Push subscription. Back-end stores subscription in push_subscriptions table. Sends push via web-push library. In-app: NotificationContext polls GET /api/notifications?unread=true on mount and subscribes to Socket.IO notification:{userId} events. Notification bell in navbar shows unread count badge.",
+        "backendWork": [
+          "back/src/services/push.service.ts — web-push sendNotification wrapper",
+          "back/src/routes/notifications.route.ts — GET /api/notifications, PATCH /api/notifications/:id/read, POST /api/push/subscribe, DELETE /api/push/subscribe",
+          "back/src/workers/meeting-reminder.worker.ts — cron job, fires 15 min and 5 min before meetings"
+        ],
+        "frontendFiles": [
+          "public/sw.js (service worker)",
+          "src/contexts/NotificationContext.tsx",
+          "src/components/notifications/notification-bell.tsx",
+          "src/components/notifications/notification-panel.tsx",
+          "src/components/notifications/notification-item.tsx"
+        ],
+        "notificationTypes": [
+          { "type": "call-invite", "title": "Incoming Call", "action": "Accept / Decline" },
+          { "type": "meeting-reminder-15", "title": "Meeting in 15 min", "action": "Join" },
+          { "type": "meeting-reminder-5", "title": "Meeting in 5 min", "action": "Join" },
+          { "type": "meeting-start", "title": "Meeting starting now", "action": "Join" },
+          { "type": "dm-message", "title": "New message from {name}", "action": "View" },
+          { "type": "mention", "title": "{name} mentioned you", "action": "View" },
+          { "type": "live-session-start", "title": "Live session started", "action": "Watch" },
+          { "type": "rsvp-response", "title": "{name} accepted your invite", "action": "View" },
+          { "type": "recording-ready", "title": "Recording is ready", "action": "View" },
+          { "type": "summary-ready", "title": "Meeting summary ready", "action": "View" }
+        ],
+        "dependencies": ["chat-002", "chat-003", "video-002", "calendar-002"],
+        "acceptanceCriteria": [
+          "Browser prompts for notification permission on first login",
+          "Push notification delivered even when tab is not in focus",
+          "Notification bell badge count increments in real time",
+          "Clicking notification navigates to the relevant resource",
+          "Mark-all-read button clears the badge",
+          "Meeting reminders fire at 15 min and 5 min before start time",
+          "User can disable specific notification types in settings",
+          "Notifications respect user Do Not Disturb status (no push when DND)"
+        ]
+      }
     }
   }
 }

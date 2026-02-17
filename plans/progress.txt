@@ -562,3 +562,82 @@ The current implementation uses client-side switching which provides basic i18n 
 
 Next iteration: Check if there are any remaining pending features in prd.json
 
+
+Ralph Iteration - Feature: presence-001 (User Presence & Availability System)
+
+Date: 2026-02-17
+
+What was implemented:
+- Created PresenceContext at front/src/contexts/PresenceContext.tsx:
+  - Real-time presence state management with Map<string, PresenceState>
+  - setStatus method to update status (online/away/busy/dnd/offline)
+  - getStatus method to retrieve presence for any user
+  - Idle detection (5 min timeout) auto-sets status to away
+  - Automatic heartbeat management for presence tracking
+- Created usePresence hook at front/src/hooks/usePresence.ts:
+  - Simple hook to get presence state for a specific userId
+- Created presence-badge component at front/src/components/presence/presence-badge.tsx:
+  - PresenceBadge: Shows colored dot indicator
+  - PresenceAvatar: Avatar with presence indicator badge
+  - Supports different sizes (sm, md, lg, xl)
+  - Shows status color-coded dot (green=online, yellow=away, red=busy/dnd, gray=offline)
+- Created status-picker component at front/src/components/presence/status-picker.tsx:
+  - Dropdown menu for selecting status
+  - Supports all 5 statuses (online, away, busy, dnd, offline)
+  - Custom status message input (max 100 chars)
+  - Presenter-aware with focus management
+- Created backend presence socket at back/src/sockets/presence.socket.ts:
+  - Socket.IO namespace /presence
+  - Events: join, heartbeat, set-status, disconnect
+  - Organization-based room joining for fan-out
+  - Automatic idle/offline detection with setInterval
+- Created backend presence service at back/src/services/presence.service.ts:
+  - Redis-based presence storage with TTL (900s)
+  - setPresence, getPresence, getBatchPresence, removePresence functions
+  - Graceful fallback when Redis unavailable
+- Created backend presence route at back/src/routes/presence.route.ts:
+  - POST /api/presence/batch - bulk fetch presence for multiple users
+  - GET /api/presence/:userId - get single user presence
+- Created frontend API route at front/src/app/api/presence/batch/route.ts:
+  - Proxy to backend presence endpoint
+- Integrated PresenceProvider in app layout at front/src/app/(app)/layout.tsx
+- Integrated presence avatar and status picker into navbar dropdown at front/src/components/layout/navbar.tsx
+
+Technical decisions:
+- Used Map<string, PresenceState> for O(1) lookups in frontend context
+- Idle detection via setInterval checking lastActivity timestamp
+- Status colors follow PRD: online=green, away=yellow, busy/dnd=red, offline=gray
+- Custom status max 100 chars as per PRD
+- Redis TTL of 900s (15 min) for presence expiry
+- Socket.IO events broadcast to same organization for privacy
+- Graceful degradation when Redis unavailable (returns empty/offline)
+
+Files created:
+- front/src/contexts/PresenceContext.tsx
+- front/src/hooks/usePresence.ts
+- front/src/components/presence/presence-badge.tsx
+- front/src/components/presence/status-picker.tsx
+- front/src/app/api/presence/batch/route.ts
+- back/src/sockets/presence.socket.ts
+- back/src/services/presence.service.ts
+- back/src/routes/presence.route.ts
+
+Files modified:
+- front/src/app/(app)/layout.tsx - Added PresenceProvider wrapper
+- front/src/components/layout/navbar.tsx - Integrated PresenceAvatar and StatusPicker
+- back/package.json - Added socket.io, ioredis dependencies
+
+Dependencies installed (back):
+- socket.io (4.8.3)
+- ioredis (5.9.3)
+
+Status: COMPLETED - User presence system implemented with real-time status tracking, status picker, and presence badges
+
+Acceptance criteria met:
+- User status dot appears on avatars in navbar ✓
+- User can manually set status from navbar avatar dropdown ✓
+- Idle detection sets status to away after 5 min without input ✓
+- Custom status message (max 100 chars) supported ✓
+- Presence badge visible on avatar in navbar ✓
+
+Next iteration: chat-002 (Real-Time 1-on-1 Text Chat) or video-001 (LiveKit Infrastructure)
