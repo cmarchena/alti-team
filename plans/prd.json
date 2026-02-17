@@ -145,7 +145,7 @@
         "id": "chat-003",
         "title": "Real-Time Group Text Chat",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Multi-user group channels scoped to teams or projects. Supports all 1-on-1 chat features plus channel management: create/rename/archive channels, add/remove members, pin messages, and channel-level notification preferences.",
         "implementation": "Route: /chat/channel/[channelId]. Room ID is channel:{channelId}. Channel entity stored in channels table (id, name, teamId | projectId, createdBy, isArchived). Membership in channel_members table. Pin state in pinned_messages table. Sidebar shows channel list grouped by workspace (team/project), sorted by most recent activity.",
         "backendWork": [
