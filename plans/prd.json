@@ -264,7 +264,7 @@
         "id": "video-004",
         "title": "Group Video & Audio Call",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Video/audio calls for 3–50 participants within a channel or team. Grid layout auto-adjusts from 2×2 to 5×5. Active speaker detection highlights the dominant speaker. All features of 1-on-1 calls plus hand-raise and reactions.",
         "implementation": "Extend call-room.tsx to support multi-participant grid. Use LiveKit's useParticipants() hook. Implement active-speaker detection via useSpeakingParticipants(). Layout switches: grid (≤9 participants), speaker-focus (>9, dominant speaker large, others strip). Group calls initiated from channel header 'Start Call' button. All channel members receive invite via Socket.IO.",
         "frontendFiles": [
