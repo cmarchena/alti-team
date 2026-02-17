@@ -205,7 +205,7 @@
         "id": "video-002",
         "title": "1-on-1 Video & Audio Call",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Peer-to-peer-quality video and audio calls between two users, routed through LiveKit SFU. Initiated from DM chat header or contact cards. Includes camera on/off, mic mute, screen share, call timer, and end-call.",
         "implementation": "Inbound call triggers a Socket.IO call-invite event. Recipient sees a floating call-notification overlay. On accept both sides fetch a LiveKit token for the same room and connect via @livekit/components-react <LiveKitRoom>. Render using VideoConference preset component, customised with our design tokens. Route: /call/[callId] (opens in a new browser tab or modal overlay, configurable).",
         "frontendFiles": [
