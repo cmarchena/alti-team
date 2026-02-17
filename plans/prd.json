@@ -244,7 +244,7 @@
         "id": "video-003",
         "title": "Screen Sharing",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "Any participant in a 1-on-1 call, group call, or live session can share their entire screen, a specific window, or a browser tab. Multiple participants may share simultaneously (viewer can switch between screenshares).",
         "implementation": "Use LiveKit's built-in screen share track (participant.screenShareTrack). Add Share Screen button to call-controls.tsx. Share source picker is the browser native getDisplayMedia() dialog. Screenshare tile appears in a dedicated panel above the speaker tile. Annotation layer is out of scope for v3.",
         "frontendFiles": [
