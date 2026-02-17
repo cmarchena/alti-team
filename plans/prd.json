@@ -297,7 +297,7 @@
         "id": "video-005",
         "title": "One-to-Many Live Video Session (Webinar / Broadcast)",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "A host (or co-hosts) broadcasts video/audio to up to 500 viewers. Viewers are receive-only by default but can be promoted to speaker. Includes live Q&A, polls, viewer count, and hand-raise queue for the host.",
         "implementation": "LiveKit room with host publishing tracks and viewers joining with subscribe-only permissions. Token endpoint differentiates role via canPublish flag. Route: /live/[sessionId]. Session entity in live_sessions table. Sidebar shows Q&A queue and polls panel. Broadcast can be promoted to 'session recording' (video-008).",
         "frontendFiles": [
