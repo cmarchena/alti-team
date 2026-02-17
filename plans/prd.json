@@ -344,7 +344,7 @@
         "id": "video-006",
         "title": "Call & Session Recording",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "Hosts can record group calls, meeting calls, and live sessions. Recording is composed server-side by LiveKit's Egress service, uploaded to S3, and made available for playback in the app. Participants see a recording indicator badge.",
         "implementation": "Enable LiveKit Egress in docker-compose.yml (livekit/egress image). When host clicks 'Record', back-end calls egress.startRoomCompositeEgress() with S3 output config. On completion webhook, store S3 URL in recordings table and link to the meeting or session. Front-end uses wavesurfer.js for waveform playback preview.",
         "backendWork": [

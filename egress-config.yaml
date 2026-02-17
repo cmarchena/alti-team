@@ -1,0 +1,28 @@
+healthcheck:
+  enabled: false
+
+egress:
+  # Room composite recording (records entire room)
+  room_composite:
+    # S3-compatible storage
+    s3:
+      endpoint: "${S3_ENDPOINT:-http://minio:9000}"
+      access_key: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      secret_key: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+      bucket: "recordings"
+      region: "${AWS_REGION:-us-east-1}"
+
+  # Track composite (records individual tracks)
+  track_composite:
+    s3:
+      endpoint: "${S3_ENDPOINT:-http://minio:9000}"
+      access_key: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      secret_key: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+      bucket: "recordings"
+      region: "${AWS_REGION:-us-east-1}"
+
+  # WebM output format
+  webm: true
+
+  # Audio only recording
+  audio_only: true
