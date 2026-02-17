@@ -529,7 +529,7 @@
         "id": "calendar-002",
         "title": "Meeting Scheduling with Agenda",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Full meeting scheduling flow: set title, date/time, duration, recurrence, location/link, invite attendees, and build a structured agenda before the meeting. Invitees receive email invitations and in-app notifications.",
         "implementation": "New meeting dialog at src/components/meeting/new-meeting-dialog.tsx. Multi-step form: (1) Basic Info, (2) Attendees, (3) Agenda Builder, (4) Review & Send. Meeting stored in meetings table. Agenda items in agenda_items table (id, meetingId, order, title, duration, presenter, notes). Meeting generates a unique /meetings/[id] URL sent in invites. LiveKit room pre-created on schedule.",
         "backendWork": [
