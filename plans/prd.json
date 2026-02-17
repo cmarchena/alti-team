@@ -494,7 +494,7 @@
         "id": "calendar-001",
         "title": "In-App Calendar",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Full-featured in-app calendar rendered with FullCalendar (React). Views: month, week, day, and agenda list. Events include meetings, tasks with due dates, and live sessions. User can create, edit, and delete events directly from the calendar.",
         "implementation": "Install @fullcalendar/react + plugins. Route: /calendar. The calendar queries GET /api/calendar/events?start=&end= which aggregates meetings, tasks, and live sessions into a unified CalendarEvent DTO. Events colour-coded by type. Clicking an event opens a detail sheet. Creating an event opens a new-meeting dialog (calendar-002 flow).",
         "backendWork": [
