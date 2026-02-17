@@ -1,0 +1,16 @@
+port: 7880
+rtc:
+  tcp_enabled: true
+  udp_enabled: true
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+  room_auto_create: true
+  allow_remote_participation: true
+
+keys:
+  devkey: secret
+
+logging:
+  level: info
+  pion_level: warn

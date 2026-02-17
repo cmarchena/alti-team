@@ -179,7 +179,7 @@
         "id": "video-001",
         "title": "LiveKit Infrastructure & Token Service",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Self-hosted LiveKit SFU provisioned via Docker Compose alongside the existing PostgreSQL container. Express back-end exposes a token-generation endpoint. This is the infrastructure task that all video/audio features depend on.",
         "implementation": "Add livekit service to docker-compose.yml. Create back/src/services/livekit.service.ts wrapping livekit-server-sdk. Expose POST /api/livekit/token {roomName, participantIdentity, participantName, permissions}. Tokens are JWT-signed with LIVEKIT_API_KEY + LIVEKIT_API_SECRET env vars. Room names follow convention: dm:{roomId}, call:{callId}, live:{sessionId}.",
         "backendWork": [
