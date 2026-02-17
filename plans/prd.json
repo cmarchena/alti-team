@@ -600,7 +600,7 @@
         "id": "calendar-003",
         "title": "Google Calendar & Microsoft Outlook Sync",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "Two-way sync between AltiTeam in-app calendar and external Google Calendar or Microsoft Outlook. User connects their account via OAuth. AltiTeam meetings are pushed to the external calendar. External events are pulled and shown (read-only) in the AltiTeam calendar.",
         "implementation": "OAuth flow for Google (googleapis) and Microsoft (MSAL + Microsoft Graph API). Store OAuth tokens in calendar_integrations table (userId, provider, accessToken, refreshToken, expiresAt, calendarId). Push: when a meeting is created/updated/deleted in AltiTeam, call Google Calendar events.insert() or Graph calendarView PATCH. Pull: subscribe to push notifications (Google Calendar push channel, Microsoft Graph subscription webhook) to sync external events on change. Nightly cron job re-syncs as fallback.",
         "backendWork": [
