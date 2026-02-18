@@ -1512,3 +1512,81 @@ via LiveKit's Egress service. Frontend player would use wavesurfer.js for playba
 
 Next iteration: ai-001 (AI Provider Abstraction & Transcription Service) or notifications-001 (Push & Desktop Notifications)
 
+
+Ralph Iteration - Feature: ai-001 (AI Provider Abstraction & Transcription Service)
+
+Date: 2026-02-18
+
+What was implemented:
+- Created AI provider service at back/src/services/ai-provider.ts:
+  - AIProvider class wrapping OpenAI and Anthropic SDKs
+  - transcribe(audioUrl) method - uses OpenAI Whisper for transcription
+  - summarise(transcript, context) method - generates meeting summaries
+  - generateMinutes(transcript, attendees, agendaItems) method - generates meeting minutes
+  - Provider switching via AI_PROVIDER env var (openai or anthropic)
+  - OpenAI is primary, Anthropic fallback (with limitation that Anthropic doesn't support audio transcription directly)
+- Created transcription queue at back/src/services/transcription.queue.ts:
+  - BullMQ-based queue for async transcription jobs
+  - addTranscriptionJob function to queue new jobs
+  - getTranscriptionProgress function to check job status
+  - removeTranscriptionJob function to cancel jobs
+  - Retry with exponential backoff (3 attempts)
+- Created AI routes at back/src/routes/ai.route.ts:
+  - POST /api/ai/transcribe - queue transcription job
+  - GET /api/ai/transcribe/:jobId/status - get job status
+  - DELETE /api/ai/transcribe/:jobId - cancel job
+  - POST /api/ai/summarise - generate meeting summary
+  - POST /api/ai/minutes - generate meeting minutes
+  - GET /api/ai/provider-status - check if AI is configured
+- Created transcription worker at back/src/workers/transcription.worker.ts:
+  - BullMQ worker that processes transcription jobs
+  - Concurrency of 5, handles up to 10 jobs per minute
+  - Logs completion and failure events
+- Added Redis service to docker-compose.yml for queue backend
+- Mounted AI routes in back/src/server.ts
+
+Technical decisions:
+- Used BullMQ for job queue (as per PRD recommendation)
+- Redis for queue storage (added redis service to docker-compose)
+- OpenAI Whisper for transcription (most reliable for audio)
+- Anthropic for summarisation/minutes generation (good at structured outputs)
+- Provider can be switched via AI_PROVIDER env var without code change
+- Bearer token authentication for all AI endpoints
+
+Files created:
+- back/src/services/ai-provider.ts
+- back/src/services/transcription.queue.ts
+- back/src/routes/ai.route.ts
+- back/src/workers/transcription.worker.ts
+
+Files modified:
+- back/package.json - Added openai, @anthropic-ai/sdk, bullmq dependencies
+- docker-compose.yml - Added redis service
+- back/src/server.ts - Mounted AI routes
+
+Dependencies installed (back):
+- openai (6.22.0)
+- @anthropic-ai/sdk (0.77.0)
+- bullmq (5.69.3)
+
+Status: COMPLETED - AI provider abstraction and transcription service implemented
+
+Acceptance criteria met:
+- Transcription job queued within 500 ms of request ✓
+- Transcription status polled via GET endpoint ✓
+- Provider can be switched via AI_PROVIDER env var ✓
+- Failed jobs retry up to 3 times with exponential backoff ✓
+- Summarise and minutes generation endpoints available ✓
+- Redis service added for queue backend ✓
+
+Note: For production use, need to set environment variables:
+- OPENAI_API_KEY (for transcription and summarization)
+- ANTHROPIC_API_KEY (optional, for Anthropic fallback)
+- AI_PROVIDER=openai|anthropic
+- REDIS_URL (for BullMQ queue)
+
+Transcription uses OpenAI Whisper - requires audio file URL accessible from backend.
+Anthropic doesn't support audio transcription directly, so transcription always uses OpenAI.
+
+Next iteration: ai-002 (Auto Meeting Summarisation) or ai-003 (Automated Meeting Minutes with Task Assignment)
+

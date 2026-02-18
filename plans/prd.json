@@ -388,7 +388,7 @@
         "id": "ai-001",
         "title": "AI Provider Abstraction & Transcription Service",
         "priority": "critical",
-        "status": "pending",
+        "status": "done",
         "description": "Single AI provider service in the back-end that wraps OpenAI (primary) and Anthropic (fallback) SDKs, and exposes a transcription endpoint that accepts audio file references and returns text via OpenAI Whisper.",
         "implementation": "Create back/src/services/ai-provider.ts with methods: transcribe(s3Key): Promise<string>, summarise(transcript: string, context: MeetingContext): Promise<Summary>, generateMinutes(transcript: string, attendees: User[], agendaItems: AgendaItem[]): Promise<MeetingMinutes>. The transcription job is queued via a Redis queue (BullMQ) to avoid blocking the HTTP request.",
         "backendWork": [
