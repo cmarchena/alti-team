@@ -31,7 +31,7 @@
       "multer",
       "aws-sdk",
       "node-cron",
-      "ioredis"
+      "ioredis" 
     ]
   },
   "features": {
@@ -40,7 +40,7 @@
         "id": "presence-001",
         "title": "User Presence & Availability System",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Real-time presence tracking: online/away/busy/do-not-disturb/offline statuses with user-set custom status messages and automatic idle detection. Presence state is broadcast over Socket.IO /presence namespace and stored in Redis for fast fan-out.",
         "implementation": "Create presence context at src/contexts/PresenceContext.tsx. Connect to Socket.IO /presence namespace on auth. Emit heartbeat every 30 s; server marks user away after 5 min of silence, offline after 15 min. Status stored in Redis hash presence:{userId}. Expose usePresence(userId) hook that subscribes to presence:{userId} events. Show coloured dot badge on avatars throughout the app.",
         "backendWork": [
@@ -80,7 +80,7 @@
         "id": "chat-002",
         "title": "Real-Time 1-on-1 Text Chat",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Full-featured direct messaging between two users. Messages delivered in real-time via Socket.IO, persisted to PostgreSQL, and rendered in a threaded scrollable panel. Supports text, emoji reactions, @mentions, file attachments, read receipts, and typing indicators.",
         "implementation": "Expand existing chat sidebar (chat-001) into a full chat module. Route: /chat/dm/[userId]. Create chat repository at src/lib/repositories/chat.repository.ts. Backend socket namespace /chat with rooms dm:{smallerId}:{largerId}. Messages stored in messages table (id, roomId, senderId, content, type, parentId, createdAt). Optimistic UI updates with server confirmation rollback.",
         "backendWork": [
@@ -145,7 +145,7 @@
         "id": "chat-003",
         "title": "Real-Time Group Text Chat",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Multi-user group channels scoped to teams or projects. Supports all 1-on-1 chat features plus channel management: create/rename/archive channels, add/remove members, pin messages, and channel-level notification preferences.",
         "implementation": "Route: /chat/channel/[channelId]. Room ID is channel:{channelId}. Channel entity stored in channels table (id, name, teamId | projectId, createdBy, isArchived). Membership in channel_members table. Pin state in pinned_messages table. Sidebar shows channel list grouped by workspace (team/project), sorted by most recent activity.",
         "backendWork": [
@@ -179,7 +179,7 @@
         "id": "video-001",
         "title": "LiveKit Infrastructure & Token Service",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Self-hosted LiveKit SFU provisioned via Docker Compose alongside the existing PostgreSQL container. Express back-end exposes a token-generation endpoint. This is the infrastructure task that all video/audio features depend on.",
         "implementation": "Add livekit service to docker-compose.yml. Create back/src/services/livekit.service.ts wrapping livekit-server-sdk. Expose POST /api/livekit/token {roomName, participantIdentity, participantName, permissions}. Tokens are JWT-signed with LIVEKIT_API_KEY + LIVEKIT_API_SECRET env vars. Room names follow convention: dm:{roomId}, call:{callId}, live:{sessionId}.",
         "backendWork": [
@@ -205,7 +205,7 @@
         "id": "video-002",
         "title": "1-on-1 Video & Audio Call",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Peer-to-peer-quality video and audio calls between two users, routed through LiveKit SFU. Initiated from DM chat header or contact cards. Includes camera on/off, mic mute, screen share, call timer, and end-call.",
         "implementation": "Inbound call triggers a Socket.IO call-invite event. Recipient sees a floating call-notification overlay. On accept both sides fetch a LiveKit token for the same room and connect via @livekit/components-react <LiveKitRoom>. Render using VideoConference preset component, customised with our design tokens. Route: /call/[callId] (opens in a new browser tab or modal overlay, configurable).",
         "frontendFiles": [
@@ -244,7 +244,7 @@
         "id": "video-003",
         "title": "Screen Sharing",
         "priority": "high",
-        "status": "done",
+        "status": "pending",
         "description": "Any participant in a 1-on-1 call, group call, or live session can share their entire screen, a specific window, or a browser tab. Multiple participants may share simultaneously (viewer can switch between screenshares).",
         "implementation": "Use LiveKit's built-in screen share track (participant.screenShareTrack). Add Share Screen button to call-controls.tsx. Share source picker is the browser native getDisplayMedia() dialog. Screenshare tile appears in a dedicated panel above the speaker tile. Annotation layer is out of scope for v3.",
         "frontendFiles": [
@@ -264,7 +264,7 @@
         "id": "video-004",
         "title": "Group Video & Audio Call",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Video/audio calls for 3–50 participants within a channel or team. Grid layout auto-adjusts from 2×2 to 5×5. Active speaker detection highlights the dominant speaker. All features of 1-on-1 calls plus hand-raise and reactions.",
         "implementation": "Extend call-room.tsx to support multi-participant grid. Use LiveKit's useParticipants() hook. Implement active-speaker detection via useSpeakingParticipants(). Layout switches: grid (≤9 participants), speaker-focus (>9, dominant speaker large, others strip). Group calls initiated from channel header 'Start Call' button. All channel members receive invite via Socket.IO.",
         "frontendFiles": [
@@ -297,7 +297,7 @@
         "id": "video-005",
         "title": "One-to-Many Live Video Session (Webinar / Broadcast)",
         "priority": "high",
-        "status": "done",
+        "status": "pending",
         "description": "A host (or co-hosts) broadcasts video/audio to up to 500 viewers. Viewers are receive-only by default but can be promoted to speaker. Includes live Q&A, polls, viewer count, and hand-raise queue for the host.",
         "implementation": "LiveKit room with host publishing tracks and viewers joining with subscribe-only permissions. Token endpoint differentiates role via canPublish flag. Route: /live/[sessionId]. Session entity in live_sessions table. Sidebar shows Q&A queue and polls panel. Broadcast can be promoted to 'session recording' (video-008).",
         "frontendFiles": [
@@ -344,7 +344,7 @@
         "id": "video-006",
         "title": "Call & Session Recording",
         "priority": "high",
-        "status": "done",
+        "status": "pending",
         "description": "Hosts can record group calls, meeting calls, and live sessions. Recording is composed server-side by LiveKit's Egress service, uploaded to S3, and made available for playback in the app. Participants see a recording indicator badge.",
         "implementation": "Enable LiveKit Egress in docker-compose.yml (livekit/egress image). When host clicks 'Record', back-end calls egress.startRoomCompositeEgress() with S3 output config. On completion webhook, store S3 URL in recordings table and link to the meeting or session. Front-end uses wavesurfer.js for waveform playback preview.",
         "backendWork": [
@@ -388,7 +388,7 @@
         "id": "ai-001",
         "title": "AI Provider Abstraction & Transcription Service",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Single AI provider service in the back-end that wraps OpenAI (primary) and Anthropic (fallback) SDKs, and exposes a transcription endpoint that accepts audio file references and returns text via OpenAI Whisper.",
         "implementation": "Create back/src/services/ai-provider.ts with methods: transcribe(s3Key): Promise<string>, summarise(transcript: string, context: MeetingContext): Promise<Summary>, generateMinutes(transcript: string, attendees: User[], agendaItems: AgendaItem[]): Promise<MeetingMinutes>. The transcription job is queued via a Redis queue (BullMQ) to avoid blocking the HTTP request.",
         "backendWork": [
@@ -417,7 +417,7 @@
         "id": "ai-002",
         "title": "Auto Meeting Summarisation",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "After a meeting recording is transcribed, automatically generate a structured summary: key discussion points, decisions made, and open questions. Summary is attached to the meeting record and emailed to attendees.",
         "implementation": "After ai-001 transcription completes, chain a summarisation job. Pass transcript + meeting metadata (title, attendees, agenda) to GPT-4o with a structured output prompt. Store result in meeting_summaries table as JSON {keyPoints: string[], decisions: string[], openQuestions: string[]}. Trigger email notification to attendees via existing email service.",
         "backendWork": [
@@ -456,7 +456,7 @@
         "id": "ai-003",
         "title": "Automated Meeting Minutes with Task Assignment",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "From the meeting transcript and attendee list, generate formal meeting minutes (date, attendees, agenda items, discussion per item, action items) and auto-create tasks in AltiTeam linked to the meeting, pre-assigned to the mentioned team member.",
         "implementation": "Extend ai-provider.ts generateMinutes() method with a JSON-mode prompt that returns {attendees, agendaDiscussions: [{agendaItem, discussion, outcome}], actionItems: [{description, assigneeName, dueDate}]}. Back-end fuzzy-matches assigneeName against org members. Creates task entities via existing tasks repository. User is shown a confirmation/edit dialog before tasks are committed.",
         "backendWork": [
@@ -494,7 +494,7 @@
         "id": "calendar-001",
         "title": "In-App Calendar",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Full-featured in-app calendar rendered with FullCalendar (React). Views: month, week, day, and agenda list. Events include meetings, tasks with due dates, and live sessions. User can create, edit, and delete events directly from the calendar.",
         "implementation": "Install @fullcalendar/react + plugins. Route: /calendar. The calendar queries GET /api/calendar/events?start=&end= which aggregates meetings, tasks, and live sessions into a unified CalendarEvent DTO. Events colour-coded by type. Clicking an event opens a detail sheet. Creating an event opens a new-meeting dialog (calendar-002 flow).",
         "backendWork": [
@@ -529,7 +529,7 @@
         "id": "calendar-002",
         "title": "Meeting Scheduling with Agenda",
         "priority": "critical",
-        "status": "done",
+        "status": "pending",
         "description": "Full meeting scheduling flow: set title, date/time, duration, recurrence, location/link, invite attendees, and build a structured agenda before the meeting. Invitees receive email invitations and in-app notifications.",
         "implementation": "New meeting dialog at src/components/meeting/new-meeting-dialog.tsx. Multi-step form: (1) Basic Info, (2) Attendees, (3) Agenda Builder, (4) Review & Send. Meeting stored in meetings table. Agenda items in agenda_items table (id, meetingId, order, title, duration, presenter, notes). Meeting generates a unique /meetings/[id] URL sent in invites. LiveKit room pre-created on schedule.",
         "backendWork": [
@@ -600,7 +600,7 @@
         "id": "calendar-003",
         "title": "Google Calendar & Microsoft Outlook Sync",
         "priority": "high",
-        "status": "done",
+        "status": "pending",
         "description": "Two-way sync between AltiTeam in-app calendar and external Google Calendar or Microsoft Outlook. User connects their account via OAuth. AltiTeam meetings are pushed to the external calendar. External events are pulled and shown (read-only) in the AltiTeam calendar.",
         "implementation": "OAuth flow for Google (googleapis) and Microsoft (MSAL + Microsoft Graph API). Store OAuth tokens in calendar_integrations table (userId, provider, accessToken, refreshToken, expiresAt, calendarId). Push: when a meeting is created/updated/deleted in AltiTeam, call Google Calendar events.insert() or Graph calendarView PATCH. Pull: subscribe to push notifications (Google Calendar push channel, Microsoft Graph subscription webhook) to sync external events on change. Nightly cron job re-syncs as fallback.",
         "backendWork": [
