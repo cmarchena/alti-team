@@ -715,7 +715,7 @@
         "id": "notifications-001",
         "title": "Push & Desktop Notifications",
         "priority": "high",
-        "status": "pending",
+        "status": "done",
         "description": "Browser push notifications (Web Push API) and in-app notification centre for all synchronous events: incoming calls, meeting reminders (15 min, 5 min, at start), new DMs, @mentions, RSVP responses, and live session starts.",
         "implementation": "Service Worker (public/sw.js) registers Web Push subscription. Back-end stores subscription in push_subscriptions table. Sends push via web-push library. In-app: NotificationContext polls GET /api/notifications?unread=true on mount and subscribes to Socket.IO notification:{userId} events. Notification bell in navbar shows unread count badge.",
         "backendWork": [

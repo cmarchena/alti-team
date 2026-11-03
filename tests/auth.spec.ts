@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Authentication Flows', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
   })
 
   test.describe('Sign In Page', () => {
@@ -14,7 +14,7 @@ test.describe('Authentication Flows', () => {
 
     test('should navigate to signup page when clicking sign up link', async ({ page }) => {
       await page.click('text=Sign up')
-      await expect(page).toHaveURL(/\/auth\/signup/)
+      await expect(page).toHaveURL(/\/signup/)
     })
 
     test('should show error for invalid credentials', async ({ page }) => {
@@ -27,11 +27,12 @@ test.describe('Authentication Flows', () => {
 
   test.describe('Sign Up Page', () => {
     test.beforeEach(async ({ page }) => {
-      await page.goto('/auth/signup')
+      await page.goto('/signup')
     })
 
     test('should display signup form with name, email and password fields', async ({ page }) => {
-      await expect(page.locator('input[name="name"]')).toBeVisible()
+      await expect(page.locator('input[name="firstName"]')).toBeVisible()
+      await expect(page.locator('input[name="lastName"]')).toBeVisible()
       await expect(page.locator('input[name="email"]')).toBeVisible()
       await expect(page.locator('input[name="password"]')).toBeVisible()
       await expect(page.locator('button[type="submit"]')).toBeVisible()
@@ -39,20 +40,21 @@ test.describe('Authentication Flows', () => {
 
     test('should navigate to signin page when clicking sign in link', async ({ page }) => {
       await page.click('text=Sign in')
-      await expect(page).toHaveURL(/\/auth\/signin/)
+      await expect(page).toHaveURL(/\/signin/)
     })
 
     test('should show error for existing email', async ({ page }) => {
-      await page.fill('input[name="name"]', 'Test User')
+      await page.fill('input[name="firstName"]', 'Test')
+      await page.fill('input[name="lastName"]', 'User')
       await page.fill('input[name="email"]', 'admin@example.com')
-      await page.fill('input[name="password"]', 'password123')
+      await page.fill('input[name="password"]', 'SecurePassword123!')
       await page.click('button[type="submit"]')
       await expect(page.locator('text=already exists')).toBeVisible({ timeout: 5000 })
     })
 
     test('should show validation error for empty fields', async ({ page }) => {
       await page.click('button[type="submit"]')
-      await expect(page.locator('input[name="email"]')).toHaveAttribute('aria-invalid', 'true')
+      await expect(page.locator('text=Email is required')).toBeVisible({ timeout: 5000 })
     })
   })
 
@@ -60,13 +62,14 @@ test.describe('Authentication Flows', () => {
     test('should register a new user successfully', async ({ page }) => {
       const uniqueEmail = `newuser${Date.now()}@test.com`
 
-      await page.goto('/auth/signup')
-      await page.fill('input[name="name"]', 'New Test User')
+      await page.goto('/signup')
+      await page.fill('input[name="firstName"]', 'New')
+      await page.fill('input[name="lastName"]', 'User')
       await page.fill('input[name="email"]', uniqueEmail)
       await page.fill('input[name="password"]', 'SecurePassword123!')
       await page.click('button[type="submit"]')
 
-      await expect(page).not.toHaveURL(/\/auth\/signup/, { timeout: 10000 })
+      await expect(page).not.toHaveURL(/\/signup/, { timeout: 10000 })
     })
   })
 
@@ -76,8 +79,8 @@ test.describe('Authentication Flows', () => {
       await page.fill('input[name="password"]', 'admin123')
       await page.click('button[type="submit"]')
 
-      await expect(page).not.toHaveURL(/\/auth\/signin/, { timeout: 10000 })
-      await expect(page).toHaveTitle(/AltiTeam/)
+      await expect(page).not.toHaveURL(/\/signin/, { timeout: 10000 })
+      await expect(page).toHaveTitle(/Alti/)
     })
 
     test('should show error for wrong password', async ({ page }) => {
@@ -103,7 +106,7 @@ test.describe('Authentication Flows', () => {
 
       await page.reload()
 
-      await expect(page).not.toHaveURL(/\/auth\/signin/, { timeout: 5000 })
+      await expect(page).not.toHaveURL(/\/signin/, { timeout: 5000 })
     })
   })
 })
@@ -111,6 +114,6 @@ test.describe('Authentication Flows', () => {
 test.describe('Home Page Auth State', () => {
   test('should redirect to signin when not authenticated', async ({ page }) => {
     await page.goto('/')
-    await expect(page).toHaveURL(/\/auth\/signin/)
+    await expect(page).toHaveURL(/\/signin/)
   })
 })

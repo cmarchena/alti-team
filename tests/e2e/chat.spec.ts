@@ -6,11 +6,11 @@ test.describe('Chat Page', () => {
   })
 
   test('should redirect to signin when not authenticated', async ({ page }) => {
-    await expect(page).toHaveURL(/\/auth\/signin/)
+    await expect(page).toHaveURL(/\/signin/)
   })
 
   test('should display chat interface elements', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -26,7 +26,7 @@ test.describe('Chat Page', () => {
   })
 
   test('should display welcome message on initial load', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -38,7 +38,7 @@ test.describe('Chat Page', () => {
   })
 
   test('should send a message and display user message', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -57,7 +57,7 @@ test.describe('Chat Page', () => {
   test('should display loading state while sending message', async ({
     page,
   }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -66,14 +66,14 @@ test.describe('Chat Page', () => {
     await page.goto('/chat')
 
     const textarea = page.locator(
-      'textarea[placeholder="Type your message...""]',
+      'textarea[placeholder="Type your message..."]',
     )
     await textarea.fill('Test message')
     await expect(textarea).toBeDisabled()
   })
 
   test('should show quick prompts on initial load', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -96,7 +96,7 @@ test.describe('Chat Page', () => {
   })
 
   test('should hide quick prompts after sending message', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -116,7 +116,7 @@ test.describe('Chat Page', () => {
   })
 
   test('should support Shift+Enter for new line', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -134,7 +134,7 @@ test.describe('Chat Page', () => {
   })
 
   test('should clear chat when clear button is used', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -156,7 +156,7 @@ test.describe('Chat Page', () => {
   test('should have responsive layout on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
 
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -199,7 +199,7 @@ test.describe('Chat API', () => {
 
 test.describe('Chat Tool Calling', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -244,7 +244,7 @@ test.describe('Chat Tool Calling', () => {
 
 test.describe('Chat Error Handling', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -283,7 +283,7 @@ test.describe('Chat Error Handling', () => {
 
 test.describe('Chat User Experience', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
@@ -340,7 +340,7 @@ test.describe('Chat User Experience', () => {
 
 test.describe('Chat Sign Out', () => {
   test('should sign out and redirect', async ({ page }) => {
-    await page.goto('/auth/signin')
+    await page.goto('/signin')
     await page.fill('input[name="email"]', 'test@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
